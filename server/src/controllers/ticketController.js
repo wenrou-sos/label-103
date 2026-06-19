@@ -1,6 +1,7 @@
 const { TicketType, TicketOrder, User } = require('../models');
 const { successResponse, errorResponse, paginate, generateOrderNo, generateTicketCode } = require('../utils/helpers');
 const { getSeasonType, calculateTicketPrice, calculateEarlyBirdDiscount, getParkStatus } = require('../utils/business');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const { Op } = require('sequelize');
 const dayjs = require('dayjs');
 
@@ -53,6 +54,14 @@ const createTicketType = async (req, res) => {
       isActive,
     });
 
+    await createAuditLog(req, {
+      module: MODULES.TICKET_TYPE,
+      action: ACTIONS.CREATE,
+      targetId: ticketType.id,
+      description: `创建票种: ${name} (${code})`,
+      newData: ticketType.toJSON(),
+    });
+
     successResponse(res, ticketType, '票种创建成功');
   } catch (error) {
     console.error('Create ticket type error:', error);
@@ -70,6 +79,8 @@ const updateTicketType = async (req, res) => {
       return errorResponse(res, '票种不存在');
     }
 
+    const oldData = ticketType.toJSON();
+
     if (name !== undefined) ticketType.name = name;
     if (description !== undefined) ticketType.description = description;
     if (type !== undefined) ticketType.type = type;
@@ -81,6 +92,15 @@ const updateTicketType = async (req, res) => {
     if (isActive !== undefined) ticketType.isActive = isActive;
 
     await ticketType.save();
+
+    await createAuditLog(req, {
+      module: MODULES.TICKET_TYPE,
+      action: ACTIONS.UPDATE,
+      targetId: ticketType.id,
+      description: `更新票种: ${ticketType.name} (${ticketType.code})`,
+      oldData,
+      newData: ticketType.toJSON(),
+    });
 
     successResponse(res, ticketType, '票种更新成功');
   } catch (error) {
@@ -98,7 +118,16 @@ const deleteTicketType = async (req, res) => {
       return errorResponse(res, '票种不存在');
     }
 
+    const oldData = ticketType.toJSON();
     await ticketType.destroy();
+
+    await createAuditLog(req, {
+      module: MODULES.TICKET_TYPE,
+      action: ACTIONS.DELETE,
+      targetId: ticketType.id,
+      description: `删除票种: ${ticketType.name} (${ticketType.code})`,
+      oldData,
+    });
 
     successResponse(res, null, '票种删除成功');
   } catch (error) {
@@ -319,6 +348,8 @@ const verifyTicket = async (req, res) => {
       }
     }
 
+    const oldData = order.toJSON();
+
     order.usedQuantity = currentUsed + 1;
     order.usedAt = new Date();
     if (order.usedQuantity >= order.quantity) {
@@ -336,6 +367,15 @@ const verifyTicket = async (req, res) => {
       idCard: order.visitorIdCard,
       entryTime: new Date(),
       isInPark: true,
+    });
+
+    await createAuditLog(req, {
+      module: MODULES.TICKET_ORDER,
+      action: ACTIONS.VERIFY,
+      targetId: order.id,
+      description: `验票: 订单号 ${order.orderNo}, 票号 ${order.ticketCode}`,
+      oldData,
+      newData: order.toJSON(),
     });
 
     successResponse(res, {
@@ -361,9 +401,20 @@ const refundTicket = async (req, res) => {
       return errorResponse(res, '当前订单状态不可退款');
     }
 
+    const oldData = order.toJSON();
+
     order.status = 'refunded';
     order.refundedAt = new Date();
     await order.save();
+
+    await createAuditLog(req, {
+      module: MODULES.TICKET_ORDER,
+      action: ACTIONS.REFUND,
+      targetId: order.id,
+      description: `门票退款: 订单号 ${order.orderNo}, 退款金额 ¥${order.actualAmount}`,
+      oldData,
+      newData: order.toJSON(),
+    });
 
     successResponse(res, order, '退款成功');
   } catch (error) {

@@ -82,6 +82,13 @@
           <span>用户管理</span>
         </a-menu-item>
 
+        <a-menu-item v-if="isAdmin" key="/audit-logs">
+          <template #icon>
+            <FileTextOutlined />
+          </template>
+          <span>操作审计</span>
+        </a-menu-item>
+
         <a-menu-divider v-if="isMember" />
 
         <a-menu-item v-if="isMember" key="/my-tickets">
@@ -191,6 +198,7 @@ import {
   DownOutlined,
   LogoutOutlined,
   CarryOutOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()

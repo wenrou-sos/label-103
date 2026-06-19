@@ -1,6 +1,7 @@
 const { ConsumptionRecord, AnnualCard, User, TicketOrder } = require('../models');
 const { successResponse, errorResponse, paginate, generateOrderNo } = require('../utils/helpers');
 const { calculateMemberDiscount } = require('../utils/business');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const { Op } = require('sequelize');
 
 const createConsumption = async (req, res) => {
@@ -76,6 +77,14 @@ const createConsumption = async (req, res) => {
       operatorId: req.user?.id || null,
       location,
       remarks,
+    });
+
+    await createAuditLog(req, {
+      module: MODULES.CONSUMPTION,
+      action: ACTIONS.CREATE,
+      targetId: record.id,
+      description: `创建消费记录: 订单号 ${record.orderNo}, 金额 ¥${record.actualAmount}, 商户 ${merchantName || '-'}`,
+      newData: record.toJSON(),
     });
 
     successResponse(res, record, '消费记录创建成功');
@@ -183,12 +192,23 @@ const settleConsumption = async (req, res) => {
       return errorResponse(res, '该消费记录已结算');
     }
 
+    const oldData = record.toJSON();
+
     record.settlementStatus = 'settled';
     record.settledAt = new Date();
     if (paymentMethod) {
       record.paymentMethod = paymentMethod;
     }
     await record.save();
+
+    await createAuditLog(req, {
+      module: MODULES.CONSUMPTION,
+      action: ACTIONS.UPDATE,
+      targetId: record.id,
+      description: `结算消费: 订单号 ${record.orderNo}, 金额 ¥${record.actualAmount}`,
+      oldData,
+      newData: record.toJSON(),
+    });
 
     successResponse(res, record, '结算成功');
   } catch (error) {
@@ -257,9 +277,20 @@ const refundConsumption = async (req, res) => {
       }
     }
 
+    const oldData = record.toJSON();
+
     record.settlementStatus = 'refunded';
     record.remarks = reason ? `${record.remarks || ''} 退款原因: ${reason}` : record.remarks;
     await record.save();
+
+    await createAuditLog(req, {
+      module: MODULES.CONSUMPTION,
+      action: ACTIONS.REFUND,
+      targetId: record.id,
+      description: `消费退款: 订单号 ${record.orderNo}, 退款金额 ¥${record.actualAmount}${reason ? `, 原因: ${reason}` : ''}`,
+      oldData,
+      newData: record.toJSON(),
+    });
 
     successResponse(res, record, '退款成功');
   } catch (error) {

@@ -1,5 +1,6 @@
 const { User } = require('../models');
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
@@ -81,6 +82,14 @@ const createUser = async (req, res) => {
     const userData = user.toJSON();
     delete userData.password;
 
+    await createAuditLog(req, {
+      module: MODULES.USER,
+      action: ACTIONS.CREATE,
+      targetId: user.id,
+      description: `创建用户: ${username} (${role || 'member'})`,
+      newData: userData,
+    });
+
     successResponse(res, userData, '用户创建成功');
   } catch (error) {
     console.error('Create user error:', error);
@@ -98,6 +107,9 @@ const updateUser = async (req, res) => {
       return errorResponse(res, '用户不存在');
     }
 
+    const oldData = user.toJSON();
+    delete oldData.password;
+
     if (realName !== undefined) user.realName = realName;
     if (phone !== undefined) user.phone = phone;
     if (email !== undefined) user.email = email;
@@ -110,6 +122,15 @@ const updateUser = async (req, res) => {
 
     const userData = user.toJSON();
     delete userData.password;
+
+    await createAuditLog(req, {
+      module: MODULES.USER,
+      action: ACTIONS.UPDATE,
+      targetId: user.id,
+      description: `更新用户: ${user.username}`,
+      oldData,
+      newData: userData,
+    });
 
     successResponse(res, userData, '用户更新成功');
   } catch (error) {
@@ -131,7 +152,18 @@ const deleteUser = async (req, res) => {
       return errorResponse(res, '不能删除自己的账户');
     }
 
+    const oldData = user.toJSON();
+    delete oldData.password;
+
     await user.destroy();
+
+    await createAuditLog(req, {
+      module: MODULES.USER,
+      action: ACTIONS.DELETE,
+      targetId: user.id,
+      description: `删除用户: ${user.username} (${user.role})`,
+      oldData,
+    });
 
     successResponse(res, null, '用户删除成功');
   } catch (error) {
@@ -158,6 +190,13 @@ const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
 
+    await createAuditLog(req, {
+      module: MODULES.USER,
+      action: ACTIONS.RESET_PASSWORD,
+      targetId: user.id,
+      description: `重置用户密码: ${user.username}`,
+    });
+
     successResponse(res, null, '密码重置成功');
   } catch (error) {
     console.error('Reset password error:', error);
@@ -183,8 +222,19 @@ const updateUserStatus = async (req, res) => {
       return errorResponse(res, '不能禁用自己的账户');
     }
 
+    const oldData = { status: user.status };
+
     user.status = status;
     await user.save();
+
+    await createAuditLog(req, {
+      module: MODULES.USER,
+      action: ACTIONS.CHANGE_STATUS,
+      targetId: user.id,
+      description: `更新用户状态: ${user.username}, ${oldData.status} -> ${status}`,
+      oldData,
+      newData: { status },
+    });
 
     successResponse(res, null, '状态更新成功');
   } catch (error) {

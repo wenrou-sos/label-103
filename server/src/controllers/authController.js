@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { successResponse, errorResponse } = require('../utils/helpers');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const dayjs = require('dayjs');
 
 const login = async (req, res) => {
@@ -30,6 +31,14 @@ const login = async (req, res) => {
     user.lastLoginAt = new Date();
     user.lastLoginIp = req.ip;
     await user.save();
+
+    req.user = user;
+    await createAuditLog(req, {
+      module: MODULES.AUTH,
+      action: ACTIONS.LOGIN,
+      targetId: user.id,
+      description: `用户登录: ${user.username}`,
+    });
 
     const token = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },

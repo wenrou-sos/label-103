@@ -9,6 +9,7 @@ const ConsumptionRecord = require('./ConsumptionRecord');
 const VisitorRecord = require('./VisitorRecord');
 const SeasonRule = require('./SeasonRule');
 const RenewalPackage = require('./RenewalPackage');
+const AuditLog = require('./AuditLog');
 
 User.hasMany(TicketOrder, { foreignKey: 'userId' });
 TicketOrder.belongsTo(User, { foreignKey: 'userId' });
@@ -40,6 +41,9 @@ VisitorRecord.belongsTo(TicketOrder, { foreignKey: 'ticketOrderId' });
 AnnualCard.hasMany(VisitorRecord, { foreignKey: 'annualCardId' });
 VisitorRecord.belongsTo(AnnualCard, { foreignKey: 'annualCardId' });
 
+AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+User.hasMany(AuditLog, { foreignKey: 'userId' });
+
 module.exports = {
   sequelize,
   User,
@@ -51,4 +55,5 @@ module.exports = {
   VisitorRecord,
   SeasonRule,
   RenewalPackage,
+  AuditLog,
 };

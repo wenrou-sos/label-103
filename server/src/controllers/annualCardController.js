@@ -1,6 +1,7 @@
 const { AnnualCardType, AnnualCard, User, RenewalPackage } = require('../models');
 const { successResponse, errorResponse, paginate, generateCardNo, generateOrderNo } = require('../utils/helpers');
 const { calculateMemberDiscount, isBirthdayMonth } = require('../utils/business');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const dayjs = require('dayjs');
 const { Op } = require('sequelize');
 
@@ -54,6 +55,14 @@ const createCardType = async (req, res) => {
       isActive,
     });
 
+    await createAuditLog(req, {
+      module: MODULES.CARD_TYPE,
+      action: ACTIONS.CREATE,
+      targetId: cardType.id,
+      description: `创建年卡类型: ${name} (${code})`,
+      newData: cardType.toJSON(),
+    });
+
     successResponse(res, cardType, '年卡类型创建成功');
   } catch (error) {
     console.error('Create card type error:', error);
@@ -71,6 +80,8 @@ const updateCardType = async (req, res) => {
       return errorResponse(res, '年卡类型不存在');
     }
 
+    const oldData = cardType.toJSON();
+
     if (name !== undefined) cardType.name = name;
     if (description !== undefined) cardType.description = description;
     if (type !== undefined) cardType.type = type;
@@ -83,6 +94,15 @@ const updateCardType = async (req, res) => {
     if (isActive !== undefined) cardType.isActive = isActive;
 
     await cardType.save();
+
+    await createAuditLog(req, {
+      module: MODULES.CARD_TYPE,
+      action: ACTIONS.UPDATE,
+      targetId: cardType.id,
+      description: `更新年卡类型: ${cardType.name} (${cardType.code})`,
+      oldData,
+      newData: cardType.toJSON(),
+    });
 
     successResponse(res, cardType, '年卡类型更新成功');
   } catch (error) {
@@ -100,7 +120,16 @@ const deleteCardType = async (req, res) => {
       return errorResponse(res, '年卡类型不存在');
     }
 
+    const oldData = cardType.toJSON();
     await cardType.destroy();
+
+    await createAuditLog(req, {
+      module: MODULES.CARD_TYPE,
+      action: ACTIONS.DELETE,
+      targetId: cardType.id,
+      description: `删除年卡类型: ${cardType.name} (${cardType.code})`,
+      oldData,
+    });
 
     successResponse(res, null, '年卡类型删除成功');
   } catch (error) {
@@ -265,6 +294,8 @@ const verifyAnnualCard = async (req, res) => {
       return errorResponse(res, '身份证信息不匹配');
     }
 
+    const oldData = card.toJSON();
+
     card.visitCount += 1;
     card.lastVisitDate = new Date();
     await card.save();
@@ -278,6 +309,15 @@ const verifyAnnualCard = async (req, res) => {
       entryTime: new Date(),
       isInPark: true,
       isFastPass: true,
+    });
+
+    await createAuditLog(req, {
+      module: MODULES.ANNUAL_CARD,
+      action: ACTIONS.VERIFY,
+      targetId: card.id,
+      description: `验证年卡: ${card.cardNo}, 持卡人 ${card.holderName}`,
+      oldData,
+      newData: card.toJSON(),
     });
 
     const birthdayBenefit = isBirthdayMonth(card.holderBirthday);
@@ -312,8 +352,19 @@ const rechargeAnnualCard = async (req, res) => {
       return errorResponse(res, '年卡状态异常，无法充值');
     }
 
+    const oldData = card.toJSON();
+
     card.balance = parseFloat(card.balance) + parseFloat(amount);
     await card.save();
+
+    await createAuditLog(req, {
+      module: MODULES.ANNUAL_CARD,
+      action: ACTIONS.UPDATE,
+      targetId: card.id,
+      description: `年卡充值: ${card.cardNo}, 充值金额 ¥${amount}, 余额 ¥${card.balance}`,
+      oldData,
+      newData: card.toJSON(),
+    });
 
     successResponse(res, card, '充值成功');
   } catch (error) {
@@ -398,6 +449,14 @@ const createRenewalPackage = async (req, res) => {
       sortOrder,
     });
 
+    await createAuditLog(req, {
+      module: MODULES.RENEWAL_PACKAGE,
+      action: ACTIONS.CREATE,
+      targetId: pkg.id,
+      description: `创建续费套餐: ${name}`,
+      newData: pkg.toJSON(),
+    });
+
     successResponse(res, pkg, '续费套餐创建成功');
   } catch (error) {
     console.error('Create renewal package error:', error);
@@ -415,8 +474,19 @@ const updateRenewalPackage = async (req, res) => {
       return errorResponse(res, '续费套餐不存在');
     }
 
+    const oldData = pkg.toJSON();
+
     Object.assign(pkg, updateData);
     await pkg.save();
+
+    await createAuditLog(req, {
+      module: MODULES.RENEWAL_PACKAGE,
+      action: ACTIONS.UPDATE,
+      targetId: pkg.id,
+      description: `更新续费套餐: ${pkg.name}`,
+      oldData,
+      newData: pkg.toJSON(),
+    });
 
     successResponse(res, pkg, '续费套餐更新成功');
   } catch (error) {
@@ -434,7 +504,16 @@ const deleteRenewalPackage = async (req, res) => {
       return errorResponse(res, '续费套餐不存在');
     }
 
+    const oldData = pkg.toJSON();
     await pkg.destroy();
+
+    await createAuditLog(req, {
+      module: MODULES.RENEWAL_PACKAGE,
+      action: ACTIONS.DELETE,
+      targetId: pkg.id,
+      description: `删除续费套餐: ${pkg.name}`,
+      oldData,
+    });
 
     successResponse(res, null, '续费套餐删除成功');
   } catch (error) {

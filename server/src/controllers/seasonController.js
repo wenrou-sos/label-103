@@ -1,6 +1,7 @@
 const { SeasonRule } = require('../models');
 const { successResponse, errorResponse } = require('../utils/helpers');
 const { getSeasonType } = require('../utils/business');
+const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const dayjs = require('dayjs');
 
 const getSeasonRules = async (req, res) => {
@@ -39,6 +40,14 @@ const createSeasonRule = async (req, res) => {
       isActive,
     });
 
+    await createAuditLog(req, {
+      module: MODULES.SEASON,
+      action: ACTIONS.CREATE,
+      targetId: rule.id,
+      description: `创建季节规则: ${name} (${type === 'peak' ? '旺季' : '淡季'})`,
+      newData: rule.toJSON(),
+    });
+
     successResponse(res, rule, '季节规则创建成功');
   } catch (error) {
     console.error('Create season rule error:', error);
@@ -56,8 +65,19 @@ const updateSeasonRule = async (req, res) => {
       return errorResponse(res, '季节规则不存在');
     }
 
+    const oldData = rule.toJSON();
+
     Object.assign(rule, updateData);
     await rule.save();
+
+    await createAuditLog(req, {
+      module: MODULES.SEASON,
+      action: ACTIONS.UPDATE,
+      targetId: rule.id,
+      description: `更新季节规则: ${rule.name}`,
+      oldData,
+      newData: rule.toJSON(),
+    });
 
     successResponse(res, rule, '季节规则更新成功');
   } catch (error) {
@@ -75,7 +95,16 @@ const deleteSeasonRule = async (req, res) => {
       return errorResponse(res, '季节规则不存在');
     }
 
+    const oldData = rule.toJSON();
     await rule.destroy();
+
+    await createAuditLog(req, {
+      module: MODULES.SEASON,
+      action: ACTIONS.DELETE,
+      targetId: rule.id,
+      description: `删除季节规则: ${rule.name}`,
+      oldData,
+    });
 
     successResponse(res, null, '季节规则删除成功');
   } catch (error) {

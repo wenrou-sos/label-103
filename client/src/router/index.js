@@ -87,6 +87,12 @@ const routes = [
         meta: { title: '用户管理', icon: 'UserOutlined', roles: ['admin'] },
       },
       {
+        path: 'audit-logs',
+        name: 'AuditLogs',
+        component: () => import('@/views/audit/AuditLogList.vue'),
+        meta: { title: '操作审计', icon: 'FileTextOutlined', roles: ['admin'] },
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
