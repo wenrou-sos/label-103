@@ -433,6 +433,125 @@ const refundTicket = async (req, res) => {
   }
 };
 
+const batchRefundTickets = async (req, res) => {
+  try {
+    const { ids, reason } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return errorResponse(res, '请选择要退款的订单');
+    }
+
+    const uniqueIds = [...new Set(ids)];
+
+    const results = {
+      success: [],
+      failed: [],
+    };
+
+    const ticketStatusMap = {
+      pending: '待支付',
+      paid: '已支付',
+      used: '已使用',
+      refunded: '已退款',
+      cancelled: '已取消',
+      expired: '已过期',
+    };
+
+    for (const id of uniqueIds) {
+      try {
+        const order = await TicketOrder.findByPk(id);
+        if (!order) {
+          results.failed.push({
+            id,
+            orderNo: '未知',
+            reason: '订单不存在',
+          });
+          continue;
+        }
+
+        if (order.usedQuantity && order.usedQuantity > 0) {
+          results.failed.push({
+            id,
+            orderNo: order.orderNo,
+            reason: `已部分使用（使用 ${order.usedQuantity}/${order.quantity} 张），不可退款`,
+          });
+          continue;
+        }
+
+        if (order.status === 'refunded') {
+          results.failed.push({
+            id,
+            orderNo: order.orderNo,
+            reason: '订单已退款，不可重复退款',
+          });
+          continue;
+        }
+
+        if (order.status !== 'paid') {
+          results.failed.push({
+            id,
+            orderNo: order.orderNo,
+            reason: `订单状态为「${ticketStatusMap[order.status] || order.status}」，不可退款（仅已支付订单可退款）`,
+          });
+          continue;
+        }
+
+        const oldData = order.toJSON();
+
+        order.status = 'refunded';
+        order.refundedAt = new Date();
+        order.refundReason = reason || '';
+        await order.save();
+
+        await createAuditLog(req, {
+          module: MODULES.TICKET_ORDER,
+          action: ACTIONS.REFUND,
+          targetId: order.id,
+          description: `批量退票: 订单号 ${order.orderNo}, 金额 ¥${order.actualAmount}${reason ? `, 原因: ${reason}` : ''}`,
+          oldData,
+          newData: order.toJSON(),
+        });
+
+        results.success.push({
+          id,
+          orderNo: order.orderNo,
+          amount: order.actualAmount,
+        });
+      } catch (err) {
+        console.error('Batch refund single order error:', id, err);
+        results.failed.push({
+          id,
+          orderNo: (await TicketOrder.findByPk(id))?.orderNo || id,
+          reason: '系统异常，退款失败',
+        });
+      }
+    }
+
+    let summaryMessage = '';
+    if (results.success.length > 0 && results.failed.length > 0) {
+      summaryMessage = `处理完成：成功 ${results.success.length} 单，失败 ${results.failed.length} 单`;
+    } else if (results.success.length > 0) {
+      summaryMessage = `全部成功，共退款 ${results.success.length} 单`;
+    } else {
+      summaryMessage = `全部失败，共 ${results.failed.length} 单`;
+    }
+
+    successResponse(res, {
+      results,
+      summary: {
+        total: uniqueIds.length,
+        successCount: results.success.length,
+        failedCount: results.failed.length,
+        totalRefundedAmount: results.success.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toFixed(2),
+      },
+      message: summaryMessage,
+    }, summaryMessage);
+  } catch (error) {
+    console.error('Batch refund tickets error:', error);
+    errorResponse(res, '批量退款失败', 500);
+  }
+};
+
 module.exports = {
   getTicketTypes,
   getAllTicketTypes,
@@ -445,4 +564,5 @@ module.exports = {
   getTicketOrderDetail,
   verifyTicket,
   refundTicket,
+  batchRefundTickets,
 };

@@ -82,3 +82,11 @@ export const refundTicket = (id) => {
     method: 'post',
   })
 }
+
+export const batchRefundTickets = (data) => {
+  return request({
+    url: '/tickets/orders/batch-refund',
+    method: 'post',
+    data,
+  })
+}

@@ -95,6 +95,11 @@ const TicketOrder = sequelize.define('TicketOrder', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  refundReason: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: '退款原因',
+  },
   qrCode: {
     type: DataTypes.STRING(255),
     allowNull: true,

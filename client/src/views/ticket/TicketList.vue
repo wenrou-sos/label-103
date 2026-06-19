@@ -48,6 +48,19 @@
           <QrcodeOutlined />
           验票
         </a-button>
+        <a-popconfirm
+          v-if="selectedRowKeys.length > 0"
+          title={`确定对已选的 ${selectedRowKeys.length} 个订单执行批量退票吗？`}
+          ok-text="确定"
+          cancel-text="取消"
+          ok-button-props="{ danger: true }"
+          @confirm="openBatchRefundModal"
+        >
+          <a-button danger>
+            <RollbackOutlined />
+            批量退票 ({{ selectedRowKeys.length }})
+          </a-button>
+        </a-popconfirm>
       </div>
     </div>
 
@@ -63,6 +76,7 @@
         showTotal: (total) => `共 ${total} 条`,
         onChange: handlePageChange,
       }"
+      :row-selection="rowSelection"
       row-key="id"
     >
       <template #bodyCell="{ column, record }">
@@ -190,6 +204,107 @@
     </a-modal>
 
     <a-modal
+      v-model:open="batchRefundModalVisible"
+      title="批量退票"
+      :width="520"
+      @ok="handleBatchRefund"
+      ok-text="确认退款"
+      cancel-text="取消"
+      ok-button-props="{ danger: true }"
+      :confirm-loading="batchRefundLoading"
+    >
+      <a-alert
+        type="warning"
+        :show-icon="true"
+        :message="`将对 ${selectedRowKeys.length} 个订单执行批量退款操作，此操作不可撤销。`"
+        style="margin-bottom: 16px"
+      />
+      <a-descriptions :column="2" bordered size="small" style="margin-bottom: 16px">
+        <a-descriptions-item label="选择总数">
+          <b>{{ selectedRowKeys.length }}</b> 单
+        </a-descriptions-item>
+        <a-descriptions-item label="预计金额">
+          <b class="price-amount">¥{{ selectedTotalAmount.toFixed(2) }}</b>
+        </a-descriptions-item>
+      </a-descriptions>
+      <a-form layout="vertical">
+        <a-form-item label="退款原因（可选）">
+          <a-textarea
+            v-model:value="batchRefundReason"
+            :rows="3"
+            placeholder="请输入退款原因，便于后续追溯"
+            :maxlength="200"
+            show-count
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="refundResultVisible"
+      title="批量退款结果"
+      :width="680"
+      ok-text="确定"
+      :cancel-button-props="{ style: { display: 'none' } }"
+      @ok="handleRefundResultClose"
+    >
+      <a-result
+        v-if="refundResult?.summary"
+        :status="refundResult.summary.failedCount === 0 ? 'success' : 'warning'"
+        :title="refundResult.message"
+      >
+        <template #sub-title>
+          <div class="refund-summary">
+            <span>总计：<b>{{ refundResult.summary.total }}</b> 单</span>
+            <span style="margin-left: 16px; color: #52c41a">
+              成功：<b>{{ refundResult.summary.successCount }}</b> 单
+            </span>
+            <span style="margin-left: 16px; color: #ff4d4f">
+              失败：<b>{{ refundResult.summary.failedCount }}</b> 单
+            </span>
+            <span style="margin-left: 16px; color: #1677ff">
+              已退款金额：<b>¥{{ refundResult.summary.totalRefundedAmount }}</b>
+            </span>
+          </div>
+        </template>
+      </a-result>
+
+      <div v-if="refundResult?.results?.failed?.length" style="margin-top: 16px">
+        <a-alert
+          type="error"
+          show-icon
+          :message="`以下 ${refundResult.results.failed.length} 个订单退款失败`"
+          style="margin-bottom: 8px"
+        />
+        <a-table
+          size="small"
+          :columns="failedColumns"
+          :data-source="refundResult.results.failed"
+          :pagination="false"
+          row-key="id"
+          bordered
+        />
+      </div>
+
+      <div v-if="refundResult?.results?.success?.length" style="margin-top: 16px">
+        <a-alert
+          type="success"
+          show-icon
+          :message="`以下 ${refundResult.results.success.length} 个订单退款成功`"
+          style="margin-bottom: 8px"
+        />
+        <a-table
+          size="small"
+          :columns="successColumns"
+          :data-source="refundResult.results.success"
+          :pagination="false"
+          row-key="id"
+          bordered
+        />
+      </div>
+    </a-modal>
+
+    <a-modal
       v-model:open="detailModalVisible"
       title="订单详情"
       :width="600"
@@ -242,16 +357,37 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { getTicketOrders, getTicketTypes, createTicketOrder, verifyTicket, refundTicket } from '@/api/ticket'
+import { getTicketOrders, getTicketTypes, createTicketOrder, verifyTicket, refundTicket, batchRefundTickets } from '@/api/ticket'
 import dayjs from 'dayjs'
 import {
   PlusOutlined,
   QrcodeOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons-vue'
 
 const loading = ref(false)
 const buyLoading = ref(false)
 const verifyLoading = ref(false)
+const batchRefundLoading = ref(false)
+
+const selectedRowKeys = ref([])
+const selectedRows = ref([])
+
+const batchRefundModalVisible = ref(false)
+const batchRefundReason = ref('')
+
+const refundResultVisible = ref(false)
+const refundResult = ref(null)
+
+const successColumns = [
+  { title: '订单号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '退款金额', dataIndex: 'amount', key: 'amount', width: 120, customRender: ({ text }) => `¥${text}` },
+]
+
+const failedColumns = [
+  { title: '订单号', dataIndex: 'orderNo', key: 'orderNo' },
+  { title: '失败原因', dataIndex: 'reason', key: 'reason' },
+]
 
 const data = ref({
   list: [],
@@ -330,6 +466,21 @@ const columns = [
   { title: '游客', dataIndex: 'visitorName', key: 'visitorName', width: 100 },
   { title: '操作', key: 'action', width: 140, fixed: 'right' },
 ]
+
+const selectedTotalAmount = computed(() => {
+  return selectedRows.value.reduce((sum, row) => sum + (parseFloat(row.actualAmount) || 0), 0)
+})
+
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys, rows) => {
+    selectedRowKeys.value = keys
+    selectedRows.value = rows
+  },
+  getCheckboxProps: (record) => ({
+    disabled: record.status !== 'paid',
+  }),
+}))
 
 const disabledDate = (current) => {
   return current && current < dayjs().startOf('day')
@@ -495,6 +646,47 @@ const handleRefund = (record) => {
   })
 }
 
+const openBatchRefundModal = () => {
+  const payableRows = selectedRows.value.filter((r) => r.status === 'paid')
+  if (payableRows.length === 0) {
+    message.warning('选中的订单中没有可退款的订单（仅已支付订单可退款）')
+    return
+  }
+  selectedRowKeys.value = payableRows.map((r) => r.id)
+  selectedRows.value = payableRows
+  batchRefundReason.value = ''
+  batchRefundModalVisible.value = true
+}
+
+const handleBatchRefund = async () => {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请选择要退款的订单')
+    return
+  }
+  batchRefundLoading.value = true
+  try {
+    const result = await batchRefundTickets({
+      ids: selectedRowKeys.value,
+      reason: batchRefundReason.value,
+    })
+    refundResult.value = result
+    batchRefundModalVisible.value = false
+    refundResultVisible.value = true
+    selectedRowKeys.value = []
+    selectedRows.value = []
+    loadData()
+  } catch (e) {
+    // ignore
+  } finally {
+    batchRefundLoading.value = false
+  }
+}
+
+const handleRefundResultClose = () => {
+  refundResultVisible.value = false
+  refundResult.value = null
+}
+
 onMounted(() => {
   loadTicketTypes()
   loadData()
@@ -506,6 +698,11 @@ onMounted(() => {
   background: #f5f5f5;
   padding: 16px;
   border-radius: 8px;
+}
+
+.refund-summary {
+  font-size: 14px;
+  line-height: 2;
 }
 
 .price-item {

@@ -15,5 +15,6 @@ router.get('/orders', authMiddleware, ticketController.getTicketOrders);
 router.get('/orders/:id', authMiddleware, ticketController.getTicketOrderDetail);
 router.post('/verify', authMiddleware, roleMiddleware(['admin', 'operator']), ticketController.verifyTicket);
 router.post('/orders/:id/refund', authMiddleware, roleMiddleware(['admin', 'operator']), ticketController.refundTicket);
+router.post('/orders/batch-refund', authMiddleware, roleMiddleware(['admin', 'operator']), ticketController.batchRefundTickets);
 
 module.exports = router;
