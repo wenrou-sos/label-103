@@ -1,6 +1,7 @@
 const { TicketType, TicketOrder, User } = require('../models');
 const { successResponse, errorResponse, paginate, generateOrderNo, generateTicketCode } = require('../utils/helpers');
 const { getSeasonType, calculateTicketPrice, calculateEarlyBirdDiscount, getParkStatus } = require('../utils/business');
+const { Op } = require('sequelize');
 const dayjs = require('dayjs');
 
 const getTicketTypes = async (req, res) => {
@@ -193,7 +194,7 @@ const createTicketOrder = async (req, res) => {
 
 const getTicketOrders = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, status, startDate, endDate, keyword } = req.query;
+    const { page = 1, pageSize = 10, status, startDate, endDate, keyword, ticketTypeId } = req.query;
 
     const where = {};
 
@@ -201,8 +202,12 @@ const getTicketOrders = async (req, res) => {
       where.status = status;
     }
 
+    if (ticketTypeId) {
+      where.ticketTypeId = ticketTypeId;
+    }
+
     if (startDate && endDate) {
-      where.createdAt = {
+      where.visitDate = {
         [Op.gte]: dayjs(startDate).startOf('day').toDate(),
         [Op.lte]: dayjs(endDate).endOf('day').toDate(),
       };

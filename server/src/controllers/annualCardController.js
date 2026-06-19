@@ -164,12 +164,16 @@ const purchaseAnnualCard = async (req, res) => {
 
 const getAnnualCards = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, status, keyword } = req.query;
+    const { page = 1, pageSize = 10, status, keyword, cardTypeId } = req.query;
 
     const where = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (cardTypeId) {
+      where.cardTypeId = cardTypeId;
     }
 
     if (keyword) {
