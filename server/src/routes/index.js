@@ -10,6 +10,7 @@ const statisticsRoutes = require('./statistics');
 const userRoutes = require('./user');
 const seasonRoutes = require('./season');
 const auditRoutes = require('./audit');
+const amusementProjectRoutes = require('./amusementProject');
 
 router.get('/health', (req, res) => {
   res.json({
@@ -28,5 +29,6 @@ router.use('/statistics', statisticsRoutes);
 router.use('/users', userRoutes);
 router.use('/seasons', seasonRoutes);
 router.use('/audit-logs', auditRoutes);
+router.use('/amusement-projects', amusementProjectRoutes);
 
 module.exports = router;

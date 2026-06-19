@@ -1,6 +1,6 @@
-const { TicketType, TicketOrder, User } = require('../models');
+const { TicketType, TicketOrder, User, AmusementProject } = require('../models');
 const { successResponse, errorResponse, paginate, generateOrderNo, generateTicketCode } = require('../utils/helpers');
-const { getSeasonType, calculateTicketPrice, calculateEarlyBirdDiscount, getParkStatus } = require('../utils/business');
+const { getSeasonType, calculateTicketPrice, calculateEarlyBirdDiscount, getParkStatus, checkProjectAccess } = require('../utils/business');
 const { createAuditLog, ACTIONS, MODULES } = require('../utils/audit');
 const { Op } = require('sequelize');
 const dayjs = require('dayjs');
@@ -138,7 +138,7 @@ const deleteTicketType = async (req, res) => {
 
 const calculatePrice = async (req, res) => {
   try {
-    const { ticketTypeId, visitDate, quantity = 1 } = req.body;
+    const { ticketTypeId, visitDate, quantity = 1, visitorHeight, visitorAge, visitorIdCard } = req.body;
 
     const ticketType = await TicketType.findByPk(ticketTypeId);
     if (!ticketType) {
@@ -151,6 +151,57 @@ const calculatePrice = async (req, res) => {
     const earlyBirdResult = calculateEarlyBirdDiscount(unitPrice, visitDate);
     const discountTotal = earlyBirdResult.discountPrice * quantity;
 
+    let accessCheck = null;
+    if (visitorHeight || visitorAge || visitorIdCard) {
+      const projects = await AmusementProject.findAll({
+        where: { isActive: true },
+        order: [['sortOrder', 'ASC'], ['createdAt', 'DESC']],
+      });
+
+      const visitor = {
+        height: visitorHeight === '' ? null : visitorHeight,
+        age: visitorAge === '' ? null : visitorAge,
+        idCard: visitorIdCard === '' ? null : visitorIdCard,
+      };
+
+      const accessible = [];
+      const inaccessible = [];
+
+      projects.forEach((project) => {
+        const result = checkProjectAccess(project, visitor);
+        const item = {
+          id: project.id,
+          name: project.name,
+          code: project.code,
+          category: project.category,
+          isCharged: project.isCharged,
+          price: project.price,
+          minHeight: project.minHeight,
+          maxHeight: project.maxHeight,
+          minAge: project.minAge,
+          maxAge: project.maxAge,
+          accessible: result.accessible,
+          reasons: result.reasons,
+        };
+        if (result.accessible) {
+          accessible.push(item);
+        } else {
+          inaccessible.push(item);
+        }
+      });
+
+      accessCheck = {
+        visitor,
+        summary: {
+          total: projects.length,
+          accessibleCount: accessible.length,
+          inaccessibleCount: inaccessible.length,
+        },
+        accessible,
+        inaccessible,
+      };
+    }
+
     successResponse(res, {
       ticketType,
       seasonType,
@@ -161,6 +212,7 @@ const calculatePrice = async (req, res) => {
       discountTotal: totalPrice - discountTotal,
       finalPrice: discountTotal,
       quantity,
+      accessCheck,
     });
   } catch (error) {
     console.error('Calculate price error:', error);

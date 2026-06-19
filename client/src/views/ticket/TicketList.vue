@@ -151,7 +151,35 @@
         <a-form-item label="游客信息">
           <a-input v-model:value="buyForm.visitorName" placeholder="姓名" style="margin-bottom: 8px" />
           <a-input v-model:value="buyForm.visitorPhone" placeholder="手机号" style="margin-bottom: 8px" />
-          <a-input v-model:value="buyForm.visitorIdCard" placeholder="身份证号" />
+          <a-input
+            v-model:value="buyForm.visitorIdCard"
+            placeholder="身份证号"
+            style="margin-bottom: 8px"
+            @change="recalcAccess"
+          />
+          <a-row :gutter="8">
+            <a-col :span="12">
+              <a-input-number
+                v-model:value="buyForm.visitorHeight"
+                :min="0"
+                :max="300"
+                :precision="1"
+                style="width: 100%"
+                placeholder="身高(cm)"
+                @change="recalcAccess"
+              />
+            </a-col>
+            <a-col :span="12">
+              <a-input-number
+                v-model:value="buyForm.visitorAge"
+                :min="0"
+                :max="120"
+                style="width: 100%"
+                placeholder="年龄(岁)"
+                @change="recalcAccess"
+              />
+            </a-col>
+          </a-row>
         </a-form-item>
         <a-form-item label="支付方式">
           <a-select v-model:value="buyForm.paymentMethod">
@@ -178,6 +206,26 @@
           <div class="price-item total">
             <span>应付金额：</span>
             <span class="price-amount">¥{{ priceInfo.finalPrice.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div v-if="accessCheck" class="access-summary">
+          <a-divider />
+          <a-alert
+            type="warning"
+            show-icon
+            :message="`游玩项目准入提示：可玩 ${accessCheck.summary.accessibleCount}/${accessCheck.summary.total} 个项目`"
+            style="margin-bottom: 8px"
+          />
+          <div v-if="accessCheck.inaccessible && accessCheck.inaccessible.length" class="inaccessible-list">
+            <div class="access-section-title">以下项目该游客无法游玩：</div>
+            <a-tag
+              v-for="item in accessCheck.inaccessible"
+              :key="item.id"
+              color="error"
+              style="margin: 2px"
+            >
+              {{ item.name }}
+            </a-tag>
           </div>
         </div>
       </a-form>
@@ -368,6 +416,7 @@ import {
   verifyTicket,
   refundTicket,
   batchRefundTickets,
+  calculatePrice as calculatePriceApi,
 } from '@/api/ticket'
 import dayjs from 'dayjs'
 import {
@@ -418,6 +467,7 @@ const dateRange = ref([])
 const ticketTypes = ref([])
 const priceInfo = ref(null)
 const seasonType = ref('off_peak')
+const accessCheck = ref(null)
 
 const buyModalVisible = ref(false)
 const verifyModalVisible = ref(false)
@@ -431,6 +481,8 @@ const buyForm = reactive({
   visitorName: '',
   visitorPhone: '',
   visitorIdCard: '',
+  visitorHeight: null,
+  visitorAge: null,
   paymentMethod: 'wechat',
 })
 
@@ -556,18 +608,29 @@ const onTicketTypeChange = async () => {
 const calculatePrice = async () => {
   if (!buyForm.ticketTypeId || !buyForm.visitDate) {
     priceInfo.value = null
+    accessCheck.value = null
     return
   }
   try {
-    const result = await import('@/api/ticket').then((m) => m.calculatePrice({
+    const result = await calculatePriceApi({
       ticketTypeId: buyForm.ticketTypeId,
       visitDate: dayjs(buyForm.visitDate).format('YYYY-MM-DD'),
       quantity: buyForm.quantity,
-    }))
+      visitorHeight: buyForm.visitorHeight,
+      visitorAge: buyForm.visitorAge,
+      visitorIdCard: buyForm.visitorIdCard,
+    })
     priceInfo.value = result
     seasonType.value = result.seasonType
+    accessCheck.value = result.accessCheck || null
   } catch (e) {
     // ignore
+  }
+}
+
+const recalcAccess = () => {
+  if (buyForm.ticketTypeId && buyForm.visitDate) {
+    calculatePrice()
   }
 }
 
@@ -578,8 +641,11 @@ const openBuyModal = async () => {
   buyForm.visitorName = ''
   buyForm.visitorPhone = ''
   buyForm.visitorIdCard = ''
+  buyForm.visitorHeight = null
+  buyForm.visitorAge = null
   buyForm.paymentMethod = 'wechat'
   priceInfo.value = null
+  accessCheck.value = null
   buyModalVisible.value = true
   await loadTicketTypes()
 }
@@ -740,5 +806,19 @@ onMounted(() => {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed #d9d9d9;
+}
+
+.access-summary {
+  margin-top: 12px;
+}
+
+.access-section-title {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.inaccessible-list {
+  margin-top: 4px;
 }
 </style>

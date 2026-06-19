@@ -10,6 +10,7 @@ const VisitorRecord = require('./VisitorRecord');
 const SeasonRule = require('./SeasonRule');
 const RenewalPackage = require('./RenewalPackage');
 const AuditLog = require('./AuditLog');
+const AmusementProject = require('./AmusementProject');
 
 User.hasMany(TicketOrder, { foreignKey: 'userId' });
 TicketOrder.belongsTo(User, { foreignKey: 'userId' });
@@ -56,4 +57,5 @@ module.exports = {
   SeasonRule,
   RenewalPackage,
   AuditLog,
+  AmusementProject,
 };

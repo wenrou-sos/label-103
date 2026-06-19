@@ -81,6 +81,18 @@ const routes = [
         meta: { title: '季节管理', icon: 'CalendarOutlined', roles: ['admin'] },
       },
       {
+        path: 'amusement-projects',
+        name: 'AmusementProjects',
+        component: () => import('@/views/amusement/AmusementProjectList.vue'),
+        meta: { title: '游玩项目管理', icon: 'AppstoreOutlined', roles: ['admin'] },
+      },
+      {
+        path: 'park-guide',
+        name: 'ParkGuide',
+        component: () => import('@/views/amusement/ParkGuide.vue'),
+        meta: { title: '园区游玩指南', icon: 'CompassOutlined', roles: ['member'] },
+      },
+      {
         path: 'users',
         name: 'Users',
         component: () => import('@/views/user/UserList.vue'),

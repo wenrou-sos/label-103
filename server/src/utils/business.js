@@ -119,6 +119,77 @@ const getParkStatus = async () => {
   };
 };
 
+const getBirthdayFromIdCard = (idCard) => {
+  if (!idCard || idCard.length !== 18) return null;
+  const year = idCard.substring(6, 10);
+  const month = idCard.substring(10, 12);
+  const day = idCard.substring(12, 14);
+  const dateStr = `${year}-${month}-${day}`;
+  const d = dayjs(dateStr);
+  if (!d.isValid()) return null;
+  return d.toDate();
+};
+
+const getAgeFromIdCard = (idCard, referenceDate = new Date()) => {
+  const birthday = getBirthdayFromIdCard(idCard);
+  if (!birthday) return null;
+  const ref = dayjs(referenceDate);
+  let age = ref.diff(dayjs(birthday), 'year');
+  const hasHadBirthdayThisYear =
+    ref.month() > dayjs(birthday).month() ||
+    (ref.month() === dayjs(birthday).month() && ref.date() >= dayjs(birthday).date());
+  if (!hasHadBirthdayThisYear) {
+    age -= 1;
+  }
+  return age < 0 ? 0 : age;
+};
+
+const checkProjectAccess = (project, visitor = {}) => {
+  const reasons = [];
+  const { height, age, idCard } = visitor;
+
+  let resolvedAge = age;
+  if (resolvedAge === undefined || resolvedAge === null) {
+    if (idCard) {
+      resolvedAge = getAgeFromIdCard(idCard);
+    }
+  }
+
+  if (project.minHeight !== null && project.minHeight !== undefined) {
+    if (height === undefined || height === null || height === '') {
+      reasons.push(`需身高 ≥ ${project.minHeight}cm，未提供游客身高信息`);
+    } else if (parseFloat(height) < parseFloat(project.minHeight)) {
+      reasons.push(`身高不足，要求 ≥ ${project.minHeight}cm，当前 ${height}cm`);
+    }
+  }
+
+  if (project.maxHeight !== null && project.maxHeight !== undefined) {
+    if (height !== undefined && height !== null && height !== '' && parseFloat(height) > parseFloat(project.maxHeight)) {
+      reasons.push(`身高超出限制，要求 ≤ ${project.maxHeight}cm，当前 ${height}cm`);
+    }
+  }
+
+  if (project.minAge !== null && project.minAge !== undefined) {
+    if (resolvedAge === null || resolvedAge === undefined) {
+      reasons.push(`需年龄 ≥ ${project.minAge}岁，未提供游客年龄信息`);
+    } else if (resolvedAge < project.minAge) {
+      reasons.push(`年龄不足，要求 ≥ ${project.minAge}岁，当前 ${resolvedAge}岁`);
+    }
+  }
+
+  if (project.maxAge !== null && project.maxAge !== undefined) {
+    if (resolvedAge !== null && resolvedAge !== undefined && resolvedAge > project.maxAge) {
+      reasons.push(`年龄超出限制，要求 ≤ ${project.maxAge}岁，当前 ${resolvedAge}岁`);
+    }
+  }
+
+  return {
+    accessible: reasons.length === 0,
+    reasons,
+    resolvedAge,
+  };
+};
+
 module.exports = {
   getSeasonType,
   calculateTicketPrice,
@@ -127,4 +198,7 @@ module.exports = {
   isBirthdayMonth,
   getInParkCount,
   getParkStatus,
+  getBirthdayFromIdCard,
+  getAgeFromIdCard,
+  checkProjectAccess,
 };

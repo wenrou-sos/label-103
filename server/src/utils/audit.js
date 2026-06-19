@@ -69,6 +69,7 @@ const MODULES = {
   CONSUMPTION: 'consumption',
   SEASON: 'season',
   AUTH: 'auth',
+  AMUSEMENT_PROJECT: 'amusement_project',
 };
 
 module.exports = {

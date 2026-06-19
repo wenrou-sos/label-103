@@ -75,6 +75,13 @@
           <span>季节管理</span>
         </a-menu-item>
 
+        <a-menu-item v-if="isAdmin" key="/amusement-projects">
+          <template #icon>
+            <AppstoreOutlined />
+          </template>
+          <span>游玩项目管理</span>
+        </a-menu-item>
+
         <a-menu-item v-if="isAdmin" key="/users">
           <template #icon>
             <UserOutlined />
@@ -103,6 +110,13 @@
             <CreditCardOutlined />
           </template>
           <span>我的年卡</span>
+        </a-menu-item>
+
+        <a-menu-item v-if="isMember" key="/park-guide">
+          <template #icon>
+            <CompassOutlined />
+          </template>
+          <span>园区游玩指南</span>
         </a-menu-item>
 
         <a-menu-item v-if="isMember" key="/my-consumptions">
@@ -199,6 +213,8 @@ import {
   LogoutOutlined,
   CarryOutOutlined,
   FileTextOutlined,
+  AppstoreOutlined,
+  CompassOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()

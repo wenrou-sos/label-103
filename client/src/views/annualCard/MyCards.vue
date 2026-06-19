@@ -87,37 +87,100 @@
     <a-modal
       v-model:open="detailModalVisible"
       title="年卡详情"
-      :width="600"
+      :width="720"
       :footer="null"
     >
-      <a-descriptions v-if="currentCard" :column="2" bordered size="small">
-        <a-descriptions-item label="卡号">{{ currentCard.cardNo }}</a-descriptions-item>
-        <a-descriptions-item label="卡类型">{{ currentCard.AnnualCardType?.name || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="持卡人">{{ currentCard.holderName || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="身份证号">{{ currentCard.holderIdCard || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="手机号">{{ currentCard.holderPhone || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="手环编号">{{ currentCard.wristbandId || '未绑定' }}</a-descriptions-item>
-        <a-descriptions-item label="激活日期">
-          {{ currentCard.activateDate ? dayjs(currentCard.activateDate).format('YYYY-MM-DD') : '-' }}
-        </a-descriptions-item>
-        <a-descriptions-item label="有效期至">
-          {{ currentCard.expireDate ? dayjs(currentCard.expireDate).format('YYYY-MM-DD') : '-' }}
-        </a-descriptions-item>
-        <a-descriptions-item label="余额">
-          <span class="price-amount">¥{{ (currentCard.balance || 0).toFixed(2) }}</span>
-        </a-descriptions-item>
-        <a-descriptions-item label="状态">
-          <a-tag :color="statusColors[currentCard.status]">
-            {{ statusMap[currentCard.status] }}
-          </a-tag>
-        </a-descriptions-item>
-        <a-descriptions-item label="成人数量" :span="2">
-          {{ currentCard.AnnualCardType?.adultCount || 0 }} 人
-        </a-descriptions-item>
-        <a-descriptions-item label="儿童数量" :span="2">
-          {{ currentCard.AnnualCardType?.childCount || 0 }} 人
-        </a-descriptions-item>
-      </a-descriptions>
+      <a-tabs v-if="currentCard">
+        <a-tab-pane key="info" tab="年卡信息">
+          <a-descriptions :column="2" bordered size="small">
+            <a-descriptions-item label="卡号">{{ currentCard.cardNo }}</a-descriptions-item>
+            <a-descriptions-item label="卡类型">{{ currentCard.AnnualCardType?.name || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="持卡人">{{ currentCard.holderName || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="身份证号">{{ currentCard.holderIdCard || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="手机号">{{ currentCard.holderPhone || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="手环编号">{{ currentCard.wristbandId || '未绑定' }}</a-descriptions-item>
+            <a-descriptions-item label="激活日期">
+              {{ currentCard.activateDate ? dayjs(currentCard.activateDate).format('YYYY-MM-DD') : '-' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="有效期至">
+              {{ currentCard.expireDate ? dayjs(currentCard.expireDate).format('YYYY-MM-DD') : '-' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="余额">
+              <span class="price-amount">¥{{ (currentCard.balance || 0).toFixed(2) }}</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="状态">
+              <a-tag :color="statusColors[currentCard.status]">
+                {{ statusMap[currentCard.status] }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="成人数量" :span="2">
+              {{ currentCard.AnnualCardType?.adultCount || 0 }} 人
+            </a-descriptions-item>
+            <a-descriptions-item label="儿童数量" :span="2">
+              {{ currentCard.AnnualCardType?.childCount || 0 }} 人
+            </a-descriptions-item>
+          </a-descriptions>
+        </a-tab-pane>
+
+        <a-tab-pane key="projects" tab="游玩项目准入">
+          <div class="projects-tab-header">
+            <a-alert
+              type="info"
+              show-icon
+              message="以下为园区全部游玩项目及准入要求，已根据持卡人身份证自动标注可玩/不可玩。"
+              style="margin-bottom: 12px"
+            />
+          </div>
+          <a-spin :spinning="projectsLoading">
+            <a-empty v-if="!cardProjects.length" description="暂无游玩项目" />
+            <a-list v-else :data-source="cardProjects" bordered>
+              <template #renderItem="{ item }">
+                <a-list-item>
+                  <a-list-item-meta>
+                    <template #title>
+                      <span style="font-weight: 600">{{ item.name }}</span>
+                      <a-tag
+                        :color="categoryColors[item.category]"
+                        style="margin-left: 8px"
+                      >
+                        {{ categoryMap[item.category] || item.category }}
+                      </a-tag>
+                      <a-tag v-if="item.isCharged" color="orange" style="margin-left: 4px">¥{{ item.price }}</a-tag>
+                      <a-tag v-else color="green" style="margin-left: 4px">免费</a-tag>
+                    </template>
+                    <template #description>
+                      <div class="project-req-line">
+                        <span>身高要求：</span>
+                        <span v-if="!item.minHeight && !item.maxHeight" class="text-muted">无限制</span>
+                        <span v-else>
+                          <span v-if="item.minHeight">≥ {{ item.minHeight }}cm</span>
+                          <span v-if="item.minHeight && item.maxHeight"> / </span>
+                          <span v-if="item.maxHeight">≤ {{ item.maxHeight }}cm</span>
+                        </span>
+                        <span style="margin-left: 16px">年龄要求：</span>
+                        <span v-if="!item.minAge && !item.maxAge" class="text-muted">无限制</span>
+                        <span v-else>
+                          <span v-if="item.minAge">≥ {{ item.minAge }}岁</span>
+                          <span v-if="item.minAge && item.maxAge"> / </span>
+                          <span v-if="item.maxAge">≤ {{ item.maxAge }}岁</span>
+                        </span>
+                      </div>
+                    </template>
+                  </a-list-item-meta>
+                  <template #actions>
+                    <a-tooltip v-if="item.accessible" title="持卡人可游玩">
+                      <a-tag color="success">可游玩</a-tag>
+                    </a-tooltip>
+                    <a-tooltip v-else :title="item.reasons.join('；')">
+                      <a-tag color="error">不可游玩</a-tag>
+                    </a-tooltip>
+                  </template>
+                </a-list-item>
+              </template>
+            </a-list>
+          </a-spin>
+        </a-tab-pane>
+      </a-tabs>
     </a-modal>
 
     <a-modal
@@ -162,11 +225,33 @@
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { getMyCards, rechargeAnnualCard, getAnnualCardDetail } from '@/api/annualCard'
+import { checkAllAccess } from '@/api/amusementProject'
 import dayjs from 'dayjs'
 import { CreditCardOutlined } from '@ant-design/icons-vue'
 
 const loading = ref(false)
 const rechargeLoading = ref(false)
+const projectsLoading = ref(false)
+
+const cardProjects = ref([])
+
+const categoryMap = {
+  thrill: '刺激类',
+  family: '家庭类',
+  children: '儿童类',
+  water: '水上类',
+  show: '演出类',
+  other: '其他',
+}
+
+const categoryColors = {
+  thrill: 'red',
+  family: 'blue',
+  children: 'green',
+  water: 'cyan',
+  show: 'purple',
+  other: 'default',
+}
 
 const data = ref({
   list: [],
@@ -238,8 +323,26 @@ const viewDetail = async (record) => {
     const result = await getAnnualCardDetail(record.id)
     currentCard.value = result
     detailModalVisible.value = true
+    await loadCardProjects(result)
   } catch (e) {
     // ignore
+  }
+}
+
+const loadCardProjects = async (card) => {
+  projectsLoading.value = true
+  cardProjects.value = []
+  try {
+    const params = {}
+    if (card.holderIdCard) {
+      params.idCard = card.holderIdCard
+    }
+    const result = await checkAllAccess(params)
+    cardProjects.value = [...(result.accessible || []), ...(result.inaccessible || [])]
+  } catch (e) {
+    // ignore
+  } finally {
+    projectsLoading.value = false
   }
 }
 
@@ -450,5 +553,14 @@ onMounted(() => {
 .price-amount {
   color: #f5222d;
   font-weight: 600;
+}
+
+.project-req-line {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.text-muted {
+  color: #9ca3af;
 }
 </style>
