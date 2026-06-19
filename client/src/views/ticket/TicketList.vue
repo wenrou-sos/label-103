@@ -211,21 +211,34 @@
         <div v-if="accessCheck" class="access-summary">
           <a-divider />
           <a-alert
-            type="warning"
+            type="info"
             show-icon
-            :message="`游玩项目准入提示：可玩 ${accessCheck.summary.accessibleCount}/${accessCheck.summary.total} 个项目`"
+            :message="`游玩项目准入提示：可玩 ${accessCheck.summary.accessibleCount} 个，待确认 ${accessCheck.summary.unknownCount} 个，不可玩 ${accessCheck.summary.inaccessibleCount} 个（共 ${accessCheck.summary.total} 个）`"
             style="margin-bottom: 8px"
           />
           <div v-if="accessCheck.inaccessible && accessCheck.inaccessible.length" class="inaccessible-list">
             <div class="access-section-title">以下项目该游客无法游玩：</div>
-            <a-tag
+            <a-tooltip
               v-for="item in accessCheck.inaccessible"
               :key="item.id"
-              color="error"
-              style="margin: 2px"
+              :title="item.failReasons.join('；')"
             >
-              {{ item.name }}
-            </a-tag>
+              <a-tag color="error" style="margin: 2px">
+                {{ item.name }}
+              </a-tag>
+            </a-tooltip>
+          </div>
+          <div v-if="accessCheck.unknown && accessCheck.unknown.length" class="unknown-list">
+            <div class="access-section-title">以下项目因信息不全无法确认：</div>
+            <a-tooltip
+              v-for="item in accessCheck.unknown"
+              :key="item.id"
+              :title="item.infoMissingReasons.join('；')"
+            >
+              <a-tag color="warning" style="margin: 2px">
+                {{ item.name }}
+              </a-tag>
+            </a-tooltip>
           </div>
         </div>
       </a-form>

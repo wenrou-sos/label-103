@@ -100,6 +100,30 @@ const createAmusementProject = async (req, res) => {
       return errorResponse(res, '项目编码已存在');
     }
 
+    const parsedMinHeight = minHeight === '' || minHeight === null || minHeight === undefined ? null : parseFloat(minHeight);
+    const parsedMaxHeight = maxHeight === '' || maxHeight === null || maxHeight === undefined ? null : parseFloat(maxHeight);
+    const parsedMinAge = minAge === '' || minAge === null || minAge === undefined ? null : parseInt(minAge);
+    const parsedMaxAge = maxAge === '' || maxAge === null || maxAge === undefined ? null : parseInt(maxAge);
+
+    if (parsedMinHeight !== null && parsedMaxHeight !== null && parsedMinHeight > parsedMaxHeight) {
+      return errorResponse(res, '最低身高不能大于最高身高');
+    }
+    if (parsedMinAge !== null && parsedMaxAge !== null && parsedMinAge > parsedMaxAge) {
+      return errorResponse(res, '最低年龄不能大于最高年龄');
+    }
+    if (parsedMinHeight !== null && parsedMinHeight < 0) {
+      return errorResponse(res, '最低身高不能为负数');
+    }
+    if (parsedMaxHeight !== null && parsedMaxHeight < 0) {
+      return errorResponse(res, '最高身高不能为负数');
+    }
+    if (parsedMinAge !== null && parsedMinAge < 0) {
+      return errorResponse(res, '最低年龄不能为负数');
+    }
+    if (parsedMaxAge !== null && parsedMaxAge < 0) {
+      return errorResponse(res, '最高年龄不能为负数');
+    }
+
     const project = await AmusementProject.create({
       name,
       code,
@@ -152,6 +176,38 @@ const updateAmusementProject = async (req, res) => {
       'isCharged', 'price', 'duration', 'capacity',
       'remarks', 'sortOrder', 'isActive',
     ];
+
+    const newMinHeight = updateData.minHeight !== undefined
+      ? (updateData.minHeight === '' || updateData.minHeight === null ? null : parseFloat(updateData.minHeight))
+      : project.minHeight;
+    const newMaxHeight = updateData.maxHeight !== undefined
+      ? (updateData.maxHeight === '' || updateData.maxHeight === null ? null : parseFloat(updateData.maxHeight))
+      : project.maxHeight;
+    const newMinAge = updateData.minAge !== undefined
+      ? (updateData.minAge === '' || updateData.minAge === null ? null : parseInt(updateData.minAge))
+      : project.minAge;
+    const newMaxAge = updateData.maxAge !== undefined
+      ? (updateData.maxAge === '' || updateData.maxAge === null ? null : parseInt(updateData.maxAge))
+      : project.maxAge;
+
+    if (newMinHeight !== null && newMaxHeight !== null && newMinHeight > newMaxHeight) {
+      return errorResponse(res, '最低身高不能大于最高身高');
+    }
+    if (newMinAge !== null && newMaxAge !== null && newMinAge > newMaxAge) {
+      return errorResponse(res, '最低年龄不能大于最高年龄');
+    }
+    if (newMinHeight !== null && newMinHeight < 0) {
+      return errorResponse(res, '最低身高不能为负数');
+    }
+    if (newMaxHeight !== null && newMaxHeight < 0) {
+      return errorResponse(res, '最高身高不能为负数');
+    }
+    if (newMinAge !== null && newMinAge < 0) {
+      return errorResponse(res, '最低年龄不能为负数');
+    }
+    if (newMaxAge !== null && newMaxAge < 0) {
+      return errorResponse(res, '最高年龄不能为负数');
+    }
 
     fields.forEach((field) => {
       if (updateData[field] !== undefined) {
@@ -264,6 +320,7 @@ const checkAllAccess = async (req, res) => {
 
     const accessible = [];
     const inaccessible = [];
+    const unknown = [];
 
     projects.forEach((project) => {
       const result = checkProjectAccess(project, visitor);
@@ -280,12 +337,17 @@ const checkAllAccess = async (req, res) => {
         minAge: project.minAge,
         maxAge: project.maxAge,
         accessible: result.accessible,
+        infoMissing: result.infoMissing,
         reasons: result.reasons,
+        failReasons: result.failReasons,
+        infoMissingReasons: result.infoMissingReasons,
       };
-      if (result.accessible) {
-        accessible.push(item);
-      } else {
+      if (result.failReasons.length > 0) {
         inaccessible.push(item);
+      } else if (result.infoMissing) {
+        unknown.push(item);
+      } else {
+        accessible.push(item);
       }
     });
 
@@ -295,9 +357,11 @@ const checkAllAccess = async (req, res) => {
         total: projects.length,
         accessibleCount: accessible.length,
         inaccessibleCount: inaccessible.length,
+        unknownCount: unknown.length,
       },
       accessible,
       inaccessible,
+      unknown,
     });
   } catch (error) {
     console.error('Check all access error:', error);

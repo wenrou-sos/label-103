@@ -65,19 +65,19 @@
           </a-tag>
         </template>
         <template v-else-if="column.key === 'heightReq'">
-          <span v-if="!record.minHeight && !record.maxHeight" class="text-muted">无限制</span>
+          <span v-if="(record.minHeight === null || record.minHeight === undefined) && (record.maxHeight === null || record.maxHeight === undefined)" class="text-muted">无限制</span>
           <span v-else>
-            <span v-if="record.minHeight">≥ {{ record.minHeight }}cm</span>
-            <span v-if="record.minHeight && record.maxHeight"> / </span>
-            <span v-if="record.maxHeight">≤ {{ record.maxHeight }}cm</span>
+            <span v-if="record.minHeight !== null && record.minHeight !== undefined">≥ {{ record.minHeight }}cm</span>
+            <span v-if="record.minHeight !== null && record.minHeight !== undefined && record.maxHeight !== null && record.maxHeight !== undefined"> / </span>
+            <span v-if="record.maxHeight !== null && record.maxHeight !== undefined">≤ {{ record.maxHeight }}cm</span>
           </span>
         </template>
         <template v-else-if="column.key === 'ageReq'">
-          <span v-if="!record.minAge && !record.maxAge" class="text-muted">无限制</span>
+          <span v-if="(record.minAge === null || record.minAge === undefined) && (record.maxAge === null || record.maxAge === undefined)" class="text-muted">无限制</span>
           <span v-else>
-            <span v-if="record.minAge">≥ {{ record.minAge }}岁</span>
-            <span v-if="record.minAge && record.maxAge"> / </span>
-            <span v-if="record.maxAge">≤ {{ record.maxAge }}岁</span>
+            <span v-if="record.minAge !== null && record.minAge !== undefined">≥ {{ record.minAge }}岁</span>
+            <span v-if="record.minAge !== null && record.minAge !== undefined && record.maxAge !== null && record.maxAge !== undefined"> / </span>
+            <span v-if="record.maxAge !== null && record.maxAge !== undefined">≤ {{ record.maxAge }}岁</span>
           </span>
         </template>
         <template v-else-if="column.key === 'charge'">

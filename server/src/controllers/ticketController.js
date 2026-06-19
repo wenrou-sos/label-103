@@ -152,20 +152,24 @@ const calculatePrice = async (req, res) => {
     const discountTotal = earlyBirdResult.discountPrice * quantity;
 
     let accessCheck = null;
-    if (visitorHeight || visitorAge || visitorIdCard) {
+    const hasVisitorHeight = visitorHeight !== undefined && visitorHeight !== null && visitorHeight !== '';
+    const hasVisitorAge = visitorAge !== undefined && visitorAge !== null && visitorAge !== '';
+    const hasVisitorIdCard = visitorIdCard !== undefined && visitorIdCard !== null && visitorIdCard !== '';
+    if (hasVisitorHeight || hasVisitorAge || hasVisitorIdCard) {
       const projects = await AmusementProject.findAll({
         where: { isActive: true },
         order: [['sortOrder', 'ASC'], ['createdAt', 'DESC']],
       });
 
       const visitor = {
-        height: visitorHeight === '' ? null : visitorHeight,
-        age: visitorAge === '' ? null : visitorAge,
-        idCard: visitorIdCard === '' ? null : visitorIdCard,
+        height: hasVisitorHeight ? visitorHeight : null,
+        age: hasVisitorAge ? visitorAge : null,
+        idCard: hasVisitorIdCard ? visitorIdCard : null,
       };
 
       const accessible = [];
       const inaccessible = [];
+      const unknown = [];
 
       projects.forEach((project) => {
         const result = checkProjectAccess(project, visitor);
@@ -181,12 +185,17 @@ const calculatePrice = async (req, res) => {
           minAge: project.minAge,
           maxAge: project.maxAge,
           accessible: result.accessible,
+          infoMissing: result.infoMissing,
           reasons: result.reasons,
+          failReasons: result.failReasons,
+          infoMissingReasons: result.infoMissingReasons,
         };
-        if (result.accessible) {
-          accessible.push(item);
-        } else {
+        if (result.failReasons.length > 0) {
           inaccessible.push(item);
+        } else if (result.infoMissing) {
+          unknown.push(item);
+        } else {
+          accessible.push(item);
         }
       });
 
@@ -196,9 +205,11 @@ const calculatePrice = async (req, res) => {
           total: projects.length,
           accessibleCount: accessible.length,
           inaccessibleCount: inaccessible.length,
+          unknownCount: unknown.length,
         },
         accessible,
         inaccessible,
+        unknown,
       };
     }
 

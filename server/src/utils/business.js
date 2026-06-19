@@ -146,46 +146,59 @@ const getAgeFromIdCard = (idCard, referenceDate = new Date()) => {
 
 const checkProjectAccess = (project, visitor = {}) => {
   const reasons = [];
+  const infoMissingReasons = [];
   const { height, age, idCard } = visitor;
 
   let resolvedAge = age;
-  if (resolvedAge === undefined || resolvedAge === null) {
+  if (resolvedAge === undefined || resolvedAge === null || resolvedAge === '') {
     if (idCard) {
       resolvedAge = getAgeFromIdCard(idCard);
     }
   }
 
+  const hasHeight = height !== undefined && height !== null && height !== '';
+  const hasAge = resolvedAge !== null && resolvedAge !== undefined && resolvedAge !== '';
+
   if (project.minHeight !== null && project.minHeight !== undefined) {
-    if (height === undefined || height === null || height === '') {
-      reasons.push(`需身高 ≥ ${project.minHeight}cm，未提供游客身高信息`);
+    if (!hasHeight) {
+      infoMissingReasons.push(`需身高 ≥ ${project.minHeight}cm，未提供游客身高信息`);
     } else if (parseFloat(height) < parseFloat(project.minHeight)) {
       reasons.push(`身高不足，要求 ≥ ${project.minHeight}cm，当前 ${height}cm`);
     }
   }
 
   if (project.maxHeight !== null && project.maxHeight !== undefined) {
-    if (height !== undefined && height !== null && height !== '' && parseFloat(height) > parseFloat(project.maxHeight)) {
+    if (!hasHeight) {
+      infoMissingReasons.push(`需身高 ≤ ${project.maxHeight}cm，未提供游客身高信息`);
+    } else if (parseFloat(height) > parseFloat(project.maxHeight)) {
       reasons.push(`身高超出限制，要求 ≤ ${project.maxHeight}cm，当前 ${height}cm`);
     }
   }
 
   if (project.minAge !== null && project.minAge !== undefined) {
-    if (resolvedAge === null || resolvedAge === undefined) {
-      reasons.push(`需年龄 ≥ ${project.minAge}岁，未提供游客年龄信息`);
+    if (!hasAge) {
+      infoMissingReasons.push(`需年龄 ≥ ${project.minAge}岁，未提供游客年龄信息`);
     } else if (resolvedAge < project.minAge) {
       reasons.push(`年龄不足，要求 ≥ ${project.minAge}岁，当前 ${resolvedAge}岁`);
     }
   }
 
   if (project.maxAge !== null && project.maxAge !== undefined) {
-    if (resolvedAge !== null && resolvedAge !== undefined && resolvedAge > project.maxAge) {
+    if (!hasAge) {
+      infoMissingReasons.push(`需年龄 ≤ ${project.maxAge}岁，未提供游客年龄信息`);
+    } else if (resolvedAge > project.maxAge) {
       reasons.push(`年龄超出限制，要求 ≤ ${project.maxAge}岁，当前 ${resolvedAge}岁`);
     }
   }
 
+  const allReasons = [...reasons, ...infoMissingReasons];
+
   return {
-    accessible: reasons.length === 0,
-    reasons,
+    accessible: reasons.length === 0 && infoMissingReasons.length === 0,
+    reasons: allReasons,
+    infoMissing: infoMissingReasons.length > 0,
+    infoMissingReasons,
+    failReasons: reasons,
     resolvedAge,
   };
 };

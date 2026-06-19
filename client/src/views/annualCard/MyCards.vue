@@ -127,7 +127,7 @@
             <a-alert
               type="info"
               show-icon
-              message="以下为园区全部游玩项目及准入要求，已根据持卡人身份证自动标注可玩/不可玩。"
+              message="以下为园区全部游玩项目及准入要求，已根据持卡人信息标注可玩/待确认/不可玩状态。"
               style="margin-bottom: 12px"
             />
           </div>
@@ -151,18 +151,18 @@
                     <template #description>
                       <div class="project-req-line">
                         <span>身高要求：</span>
-                        <span v-if="!item.minHeight && !item.maxHeight" class="text-muted">无限制</span>
+                        <span v-if="(item.minHeight === null || item.minHeight === undefined) && (item.maxHeight === null || item.maxHeight === undefined)" class="text-muted">无限制</span>
                         <span v-else>
-                          <span v-if="item.minHeight">≥ {{ item.minHeight }}cm</span>
-                          <span v-if="item.minHeight && item.maxHeight"> / </span>
-                          <span v-if="item.maxHeight">≤ {{ item.maxHeight }}cm</span>
+                          <span v-if="item.minHeight !== null && item.minHeight !== undefined">≥ {{ item.minHeight }}cm</span>
+                          <span v-if="item.minHeight !== null && item.minHeight !== undefined && item.maxHeight !== null && item.maxHeight !== undefined"> / </span>
+                          <span v-if="item.maxHeight !== null && item.maxHeight !== undefined">≤ {{ item.maxHeight }}cm</span>
                         </span>
                         <span style="margin-left: 16px">年龄要求：</span>
-                        <span v-if="!item.minAge && !item.maxAge" class="text-muted">无限制</span>
+                        <span v-if="(item.minAge === null || item.minAge === undefined) && (item.maxAge === null || item.maxAge === undefined)" class="text-muted">无限制</span>
                         <span v-else>
-                          <span v-if="item.minAge">≥ {{ item.minAge }}岁</span>
-                          <span v-if="item.minAge && item.maxAge"> / </span>
-                          <span v-if="item.maxAge">≤ {{ item.maxAge }}岁</span>
+                          <span v-if="item.minAge !== null && item.minAge !== undefined">≥ {{ item.minAge }}岁</span>
+                          <span v-if="item.minAge !== null && item.minAge !== undefined && item.maxAge !== null && item.maxAge !== undefined"> / </span>
+                          <span v-if="item.maxAge !== null && item.maxAge !== undefined">≤ {{ item.maxAge }}岁</span>
                         </span>
                       </div>
                     </template>
@@ -171,7 +171,10 @@
                     <a-tooltip v-if="item.accessible" title="持卡人可游玩">
                       <a-tag color="success">可游玩</a-tag>
                     </a-tooltip>
-                    <a-tooltip v-else :title="item.reasons.join('；')">
+                    <a-tooltip v-else-if="item.infoMissing" :title="item.infoMissingReasons.join('；')">
+                      <a-tag color="warning">待确认</a-tag>
+                    </a-tooltip>
+                    <a-tooltip v-else :title="item.failReasons.join('；')">
                       <a-tag color="error">不可游玩</a-tag>
                     </a-tooltip>
                   </template>
@@ -338,7 +341,11 @@ const loadCardProjects = async (card) => {
       params.idCard = card.holderIdCard
     }
     const result = await checkAllAccess(params)
-    cardProjects.value = [...(result.accessible || []), ...(result.inaccessible || [])]
+    cardProjects.value = [
+      ...(result.accessible || []),
+      ...(result.unknown || []),
+      ...(result.inaccessible || []),
+    ]
   } catch (e) {
     // ignore
   } finally {

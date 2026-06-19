@@ -39,22 +39,22 @@
               <div class="req-row">
                 <span class="req-label">身高要求</span>
                 <span class="req-value">
-                  <span v-if="!project.minHeight && !project.maxHeight" class="text-muted">无限制</span>
+                  <span v-if="(project.minHeight === null || project.minHeight === undefined) && (project.maxHeight === null || project.maxHeight === undefined)" class="text-muted">无限制</span>
                   <span v-else>
-                    <span v-if="project.minHeight">≥ {{ project.minHeight }}cm</span>
-                    <span v-if="project.minHeight && project.maxHeight"> / </span>
-                    <span v-if="project.maxHeight">≤ {{ project.maxHeight }}cm</span>
+                    <span v-if="project.minHeight !== null && project.minHeight !== undefined">≥ {{ project.minHeight }}cm</span>
+                    <span v-if="project.minHeight !== null && project.minHeight !== undefined && project.maxHeight !== null && project.maxHeight !== undefined"> / </span>
+                    <span v-if="project.maxHeight !== null && project.maxHeight !== undefined">≤ {{ project.maxHeight }}cm</span>
                   </span>
                 </span>
               </div>
               <div class="req-row">
                 <span class="req-label">年龄要求</span>
                 <span class="req-value">
-                  <span v-if="!project.minAge && !project.maxAge" class="text-muted">无限制</span>
+                  <span v-if="(project.minAge === null || project.minAge === undefined) && (project.maxAge === null || project.maxAge === undefined)" class="text-muted">无限制</span>
                   <span v-else>
-                    <span v-if="project.minAge">≥ {{ project.minAge }}岁</span>
-                    <span v-if="project.minAge && project.maxAge"> / </span>
-                    <span v-if="project.maxAge">≤ {{ project.maxAge }}岁</span>
+                    <span v-if="project.minAge !== null && project.minAge !== undefined">≥ {{ project.minAge }}岁</span>
+                    <span v-if="project.minAge !== null && project.minAge !== undefined && project.maxAge !== null && project.maxAge !== undefined"> / </span>
+                    <span v-if="project.maxAge !== null && project.maxAge !== undefined">≤ {{ project.maxAge }}岁</span>
                   </span>
                 </span>
               </div>
@@ -127,17 +127,24 @@
       <div v-if="accessResult" class="access-result">
         <a-divider />
         <a-row :gutter="16">
-          <a-col :span="8">
+          <a-col :span="6">
             <a-statistic title="项目总数" :value="accessResult.summary.total" />
           </a-col>
-          <a-col :span="8">
+          <a-col :span="6">
             <a-statistic
               title="可游玩"
               :value="accessResult.summary.accessibleCount"
               :value-style="{ color: '#52c41a' }"
             />
           </a-col>
-          <a-col :span="8">
+          <a-col :span="6">
+            <a-statistic
+              title="待确认"
+              :value="accessResult.summary.unknownCount"
+              :value-style="{ color: '#faad14' }"
+            />
+          </a-col>
+          <a-col :span="6">
             <a-statistic
               title="不可游玩"
               :value="accessResult.summary.inaccessibleCount"
@@ -148,7 +155,7 @@
 
         <div v-if="accessResult.inaccessible.length" style="margin-top: 16px">
           <a-alert
-            type="warning"
+            type="error"
             show-icon
             :message="`以下 ${accessResult.inaccessible.length} 个项目该游客无法游玩`"
             style="margin-bottom: 8px"
@@ -158,7 +165,27 @@
               <a-list-item>
                 <a-list-item-meta :title="item.name">
                   <template #description>
-                    <span class="reason-text">{{ item.reasons.join('；') }}</span>
+                    <span class="reason-text">{{ item.failReasons.join('；') }}</span>
+                  </template>
+                </a-list-item-meta>
+              </a-list-item>
+            </template>
+          </a-list>
+        </div>
+
+        <div v-if="accessResult.unknown && accessResult.unknown.length" style="margin-top: 16px">
+          <a-alert
+            type="warning"
+            show-icon
+            :message="`以下 ${accessResult.unknown.length} 个项目因游客信息不全无法确认，请补充信息后重新查询`"
+            style="margin-bottom: 8px"
+          />
+          <a-list size="small" bordered :data-source="accessResult.unknown">
+            <template #renderItem="{ item }">
+              <a-list-item>
+                <a-list-item-meta :title="item.name">
+                  <template #description>
+                    <span class="reason-text unknown">{{ item.infoMissingReasons.join('；') }}</span>
                   </template>
                 </a-list-item-meta>
               </a-list-item>
@@ -243,17 +270,22 @@ const loadData = async () => {
   }
 }
 
+const hasValue = (val) => val !== null && val !== undefined && val !== ''
+
 const handleCheckAccess = async () => {
-  if (!visitorInfo.height && !visitorInfo.age && !visitorInfo.idCard) {
+  const hasHeight = hasValue(visitorInfo.height)
+  const hasAge = hasValue(visitorInfo.age)
+  const hasIdCard = !!visitorInfo.idCard
+  if (!hasHeight && !hasAge && !hasIdCard) {
     message.warning('请至少填写一项游客信息')
     return
   }
   checkLoading.value = true
   try {
     const params = {}
-    if (visitorInfo.height) params.height = visitorInfo.height
-    if (visitorInfo.age) params.age = visitorInfo.age
-    if (visitorInfo.idCard) params.idCard = visitorInfo.idCard
+    if (hasHeight) params.height = visitorInfo.height
+    if (hasAge) params.age = visitorInfo.age
+    if (hasIdCard) params.idCard = visitorInfo.idCard
     accessResult.value = await checkAllAccess(params)
   } catch (e) {
     // ignore
@@ -347,6 +379,10 @@ onMounted(() => {
 .reason-text {
   color: #ff4d4f;
   font-size: 12px;
+}
+
+.reason-text.unknown {
+  color: #faad14;
 }
 
 .access-result {
