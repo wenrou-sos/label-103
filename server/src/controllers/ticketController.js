@@ -290,15 +290,22 @@ const verifyTicket = async (req, res) => {
       return errorResponse(res, '该订单门票已全部使用');
     }
 
-    if (dayjs(order.visitDate).format('YYYY-MM-DD') !== dayjs().format('YYYY-MM-DD')) {
-      return errorResponse(res, '门票当日有效，请在购票日期入园');
+    const ticketType = order.TicketType;
+    const validDays = ticketType.validDays || 1;
+    const visitDateStart = dayjs(order.visitDate).startOf('day');
+    const visitDateEnd = dayjs(order.visitDate).add(validDays - 1, 'day').endOf('day');
+    const today = dayjs();
+
+    if (today.isBefore(visitDateStart)) {
+      return errorResponse(res, `该门票尚未生效，请于 ${dayjs(order.visitDate).format('YYYY-MM-DD')} 后入园`);
+    }
+    if (today.isAfter(visitDateEnd)) {
+      return errorResponse(res, `该门票已过期，有效期至 ${visitDateEnd.format('YYYY-MM-DD')}`);
     }
 
     if (order.visitorIdCard && idCard && order.visitorIdCard !== idCard) {
       return errorResponse(res, '身份证信息不匹配');
     }
-
-    const ticketType = order.TicketType;
     if (ticketType.entryTime) {
       const entryHour = parseInt(ticketType.entryTime.split(':')[0]);
       const currentHour = dayjs().hour();
