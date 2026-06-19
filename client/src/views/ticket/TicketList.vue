@@ -7,7 +7,7 @@
           placeholder="订单状态"
           style="width: 150px"
           allow-clear
-          @change="loadData"
+          @change="handleSearch"
         >
           <a-select-option value="pending">待支付</a-select-option>
           <a-select-option value="paid">已支付</a-select-option>
@@ -16,12 +16,27 @@
           <a-select-option value="cancelled">已取消</a-select-option>
           <a-select-option value="expired">已过期</a-select-option>
         </a-select>
-        <a-range-picker v-model:value="dateRange" @change="loadData" />
+        <a-select
+          v-model:value="filters.ticketTypeId"
+          placeholder="票种类型"
+          style="width: 150px"
+          allow-clear
+          @change="handleSearch"
+        >
+          <a-select-option
+            v-for="type in ticketTypes"
+            :key="type.id"
+            :value="type.id"
+          >
+            {{ type.name }}
+          </a-select-option>
+        </a-select>
+        <a-range-picker v-model:value="dateRange" @change="handleSearch" />
         <a-input-search
           v-model:value="filters.keyword"
           placeholder="搜索订单号/票号/姓名/电话"
           style="width: 280px"
-          @search="loadData"
+          @search="handleSearch"
         />
       </div>
       <div>
@@ -247,6 +262,7 @@ const data = ref({
 
 const filters = reactive({
   status: undefined,
+  ticketTypeId: undefined,
   keyword: '',
 })
 
@@ -326,6 +342,7 @@ const loadData = async () => {
       page: data.value.page,
       pageSize: data.value.pageSize,
       status: filters.status,
+      ticketTypeId: filters.ticketTypeId,
       keyword: filters.keyword,
     }
     if (dateRange.value?.length === 2) {
@@ -339,6 +356,11 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  data.value.page = 1
+  loadData()
 }
 
 const handlePageChange = (page, pageSize) => {
@@ -474,6 +496,7 @@ const handleRefund = (record) => {
 }
 
 onMounted(() => {
+  loadTicketTypes()
   loadData()
 })
 </script>

@@ -203,12 +203,12 @@ const getTicketOrders = async (req, res) => {
 
     if (startDate && endDate) {
       where.createdAt = {
-        [require('sequelize').Op.between]: [startDate, endDate],
+        [Op.gte]: dayjs(startDate).startOf('day').toDate(),
+        [Op.lte]: dayjs(endDate).endOf('day').toDate(),
       };
     }
 
     if (keyword) {
-      const { Op } = require('sequelize');
       where[Op.or] = [
         { orderNo: { [Op.like]: `%${keyword}%` } },
         { ticketCode: { [Op.like]: `%${keyword}%` } },
