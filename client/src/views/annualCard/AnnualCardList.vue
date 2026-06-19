@@ -79,6 +79,10 @@
         <template v-else-if="column.key === 'holderPhone'">
           {{ record.holderPhone || '-' }}
         </template>
+        <template v-else-if="column.key === 'points'">
+          <span v-if="record.User?.points !== undefined" class="points-balance">{{ record.User.points }}</span>
+          <span v-else>-</span>
+        </template>
         <template v-else-if="column.key === 'activateDate'">
           {{ record.activateDate ? dayjs(record.activateDate).format('YYYY-MM-DD') : '-' }}
         </template>
@@ -386,6 +390,7 @@ const columns = [
   { title: '持卡人', key: 'holderName', width: 100 },
   { title: '身份证', key: 'holderIdCard', width: 180 },
   { title: '手机号', key: 'holderPhone', width: 120 },
+  { title: '积分', key: 'points', width: 100 },
   { title: '激活日期', key: 'activateDate', width: 120 },
   { title: '到期日期', key: 'expireDate', width: 120 },
   { title: '余额', key: 'balance', width: 100 },
@@ -586,5 +591,10 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.points-balance {
+  color: #faad14;
+  font-weight: 600;
 }
 </style>

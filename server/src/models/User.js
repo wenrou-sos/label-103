@@ -59,6 +59,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(50),
     allowNull: true,
   },
+  points: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    comment: '积分余额',
+  },
 });
 
 User.beforeCreate(async (user) => {

@@ -87,6 +87,14 @@
         <template v-else-if="column.key === 'actualAmount'">
           <span class="price-amount">¥{{ record.actualAmount?.toFixed(2) }}</span>
         </template>
+        <template v-else-if="column.key === 'pointsEarned'">
+          <span v-if="record.pointsEarned" class="points-earned">+{{ record.pointsEarned }}</span>
+          <span v-else>-</span>
+        </template>
+        <template v-else-if="column.key === 'pointsUsed'">
+          <span v-if="record.pointsUsed" class="points-used">-{{ record.pointsUsed }}</span>
+          <span v-else>-</span>
+        </template>
         <template v-else-if="column.key === 'paymentMethod'">
           {{ paymentMap[record.paymentMethod] || '-' }}
         </template>
@@ -131,8 +139,11 @@
       :confirm-loading="createLoading"
     >
       <a-form :model="createForm" layout="vertical">
-        <a-form-item label="卡ID/手环ID">
-          <a-input v-model:value="createForm.wristbandId" placeholder="请输入手环ID或卡号" />
+        <a-form-item label="年卡ID">
+          <a-input v-model:value="createForm.cardId" placeholder="请输入年卡ID（有会员才可使用积分）" />
+        </a-form-item>
+        <a-form-item label="手环ID">
+          <a-input v-model:value="createForm.wristbandId" placeholder="请输入手环ID（散客消费）" />
         </a-form-item>
         <a-form-item label="消费类型">
           <a-select v-model:value="createForm.category" style="width: 100%">
@@ -168,6 +179,25 @@
             <a-select-option value="cash">现金</a-select-option>
             <a-select-option value="annual_card">年卡扣款</a-select-option>
           </a-select>
+        </a-form-item>
+        <a-divider v-if="createForm.cardId" style="margin: 8px 0" />
+        <a-form-item v-if="createForm.cardId" label="使用积分抵扣">
+          <a-switch v-model:checked="createForm.usePoints" />
+          <span v-if="pointConfig" style="margin-left: 8px; color: #666; font-size: 12px">
+            ({{ pointConfig.point_spend_rate?.value || 100 }}积分抵1元)
+          </span>
+        </a-form-item>
+        <a-form-item v-if="createForm.cardId && createForm.usePoints" label="使用积分数" required>
+          <a-input-number
+            v-model:value="createForm.pointsToUse"
+            :min="1"
+            :precision="0"
+            style="width: 100%"
+            placeholder="请输入使用积分数"
+          />
+          <div v-if="pointsDeductionAmount > 0" class="points-deduction-tip">
+            可抵扣 ¥{{ pointsDeductionAmount.toFixed(2) }}
+          </div>
         </a-form-item>
       </a-form>
     </a-modal>
@@ -239,13 +269,25 @@
         <a-descriptions-item label="结算时间" :span="2">
           {{ currentRecord.settledAt ? formatDateTime(currentRecord.settledAt) : '-' }}
         </a-descriptions-item>
+        <a-descriptions-item label="获得积分">
+          <span v-if="currentRecord.pointsEarned" class="points-earned">+{{ currentRecord.pointsEarned }}</span>
+          <span v-else>-</span>
+        </a-descriptions-item>
+        <a-descriptions-item label="使用积分">
+          <span v-if="currentRecord.pointsUsed" class="points-used">-{{ currentRecord.pointsUsed }}</span>
+          <span v-else>-</span>
+        </a-descriptions-item>
+        <a-descriptions-item label="积分抵扣金额">
+          <span v-if="currentRecord.pointsAmount">¥{{ currentRecord.pointsAmount?.toFixed?.(2) || currentRecord.pointsAmount }}</span>
+          <span v-else>-</span>
+        </a-descriptions-item>
       </a-descriptions>
     </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import {
   getConsumptionRecords,
@@ -255,6 +297,7 @@ import {
   refundConsumption,
   getConsumptionDetail,
 } from '@/api/consumption'
+import { getPointConfig } from '@/api/systemConfig'
 import dayjs from 'dayjs'
 import {
   PlusOutlined,
@@ -287,16 +330,30 @@ const detailModalVisible = ref(false)
 const currentRecord = ref(null)
 
 const createForm = reactive({
+  cardId: '',
   wristbandId: '',
   category: undefined,
   merchantName: '',
   items: '',
   totalAmount: 0,
   paymentMethod: 'wristband',
+  usePoints: false,
+  pointsToUse: 0,
 })
 
 const settleForm = reactive({
   wristbandId: '',
+})
+
+const userPoints = ref(0)
+const pointConfig = ref(null)
+
+const pointsDeductionAmount = computed(() => {
+  if (!createForm.usePoints || !createForm.pointsToUse || !pointConfig.value) {
+    return 0
+  }
+  const rate = pointConfig.value.point_spend_rate?.value || 100
+  return createForm.pointsToUse / rate
 })
 
 const settleSummary = ref(null)
@@ -341,6 +398,8 @@ const columns = [
   { title: '金额', key: 'amount', width: 100 },
   { title: '优惠', key: 'discount', width: 100 },
   { title: '实付', key: 'actualAmount', width: 100 },
+  { title: '获得积分', key: 'pointsEarned', width: 100 },
+  { title: '使用积分', key: 'pointsUsed', width: 100 },
   { title: '支付方式', key: 'paymentMethod', width: 100 },
   { title: '结算状态', key: 'settleStatus', width: 100 },
   { title: '消费时间', key: 'consumedAt', width: 160 },
@@ -382,18 +441,22 @@ const handlePageChange = (page, pageSize) => {
 }
 
 const openCreateModal = () => {
+  createForm.cardId = ''
   createForm.wristbandId = ''
   createForm.category = undefined
   createForm.merchantName = ''
   createForm.items = ''
   createForm.totalAmount = 0
   createForm.paymentMethod = 'wristband'
+  createForm.usePoints = false
+  createForm.pointsToUse = 0
+  userPoints.value = 0
   createModalVisible.value = true
 }
 
 const handleCreate = async () => {
-  if (!createForm.wristbandId && createForm.paymentMethod === 'wristband') {
-    message.warning('请输入手环ID')
+  if (!createForm.cardId && !createForm.wristbandId) {
+    message.warning('请输入年卡ID或手环ID')
     return
   }
   if (!createForm.category) {
@@ -408,15 +471,22 @@ const handleCreate = async () => {
     message.warning('请输入有效金额')
     return
   }
+  if (createForm.usePoints && !createForm.pointsToUse) {
+    message.warning('请输入使用积分数')
+    return
+  }
   createLoading.value = true
   try {
     await createConsumption({
-      wristbandId: createForm.wristbandId,
+      cardId: createForm.cardId || undefined,
+      wristbandId: createForm.wristbandId || undefined,
       category: createForm.category,
       merchantName: createForm.merchantName,
       items: createForm.items,
       totalAmount: createForm.totalAmount,
       paymentMethod: createForm.paymentMethod,
+      usePoints: createForm.usePoints,
+      pointsToUse: createForm.pointsToUse,
     })
     message.success('新增消费成功')
     createModalVisible.value = false
@@ -501,8 +571,18 @@ const handleRefund = (record) => {
   })
 }
 
+const loadPointConfig = async () => {
+  try {
+    const config = await getPointConfig()
+    pointConfig.value = config
+  } catch (e) {
+    // ignore
+  }
+}
+
 onMounted(() => {
   loadData()
+  loadPointConfig()
 })
 </script>
 
@@ -525,6 +605,22 @@ onMounted(() => {
 .price-amount {
   color: #f5222d;
   font-weight: 600;
+}
+
+.points-earned {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.points-used {
+  color: #faad14;
+  font-weight: 600;
+}
+
+.points-deduction-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #52c41a;
 }
 
 .settle-summary {

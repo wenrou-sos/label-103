@@ -70,6 +70,8 @@ const MODULES = {
   SEASON: 'season',
   AUTH: 'auth',
   AMUSEMENT_PROJECT: 'amusement_project',
+  SYSTEM: 'system',
+  POINT: 'point',
 };
 
 module.exports = {

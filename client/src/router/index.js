@@ -99,6 +99,18 @@ const routes = [
         meta: { title: '用户管理', icon: 'UserOutlined', roles: ['admin'] },
       },
       {
+        path: 'point-records',
+        name: 'PointRecords',
+        component: () => import('@/views/user/PointRecordList.vue'),
+        meta: { title: '积分明细', icon: 'GoldOutlined', roles: ['admin', 'operator'] },
+      },
+      {
+        path: 'system-config',
+        name: 'SystemConfig',
+        component: () => import('@/views/system/SystemConfig.vue'),
+        meta: { title: '系统配置', icon: 'SettingOutlined', roles: ['admin'] },
+      },
+      {
         path: 'audit-logs',
         name: 'AuditLogs',
         component: () => import('@/views/audit/AuditLogList.vue'),

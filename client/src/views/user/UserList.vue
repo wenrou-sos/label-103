@@ -69,6 +69,7 @@
         </template>
         <template v-else-if="column.key === 'action'">
           <a-button type="link" size="small" @click="openEditModal(record)">编辑</a-button>
+          <a-button type="link" size="small" @click="openAdjustPointsModal(record)">调整积分</a-button>
           <a-button type="link" size="small" @click="openResetPasswordModal(record)">重置密码</a-button>
           <a-button type="link" size="small" danger @click="handleDelete(record)">删除</a-button>
         </template>
@@ -159,11 +160,55 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <a-modal
+      v-model:open="adjustPointsModalVisible"
+      title="调整积分"
+      :width="400"
+      @ok="handleAdjustPoints"
+      ok-text="确认调整"
+      cancel-text="取消"
+      :confirm-loading="adjustPointsLoading"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="用户名">
+          <span>{{ currentUser?.username }}</span>
+        </a-form-item>
+        <a-form-item label="当前积分">
+          <span class="points-balance">{{ currentUser?.points || 0 }} 积分</span>
+        </a-form-item>
+        <a-form-item label="调整类型" required>
+          <a-radio-group v-model:value="adjustPointsForm.type">
+            <a-radio value="increase">增加</a-radio>
+            <a-radio value="decrease">减少</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item label="调整积分" required>
+          <a-input-number
+            v-model:value="adjustPointsForm.points"
+            :min="1"
+            :precision="0"
+            style="width: 100%"
+            placeholder="请输入积分数"
+          />
+        </a-form-item>
+        <a-form-item label="调整原因">
+          <a-textarea
+            v-model:value="adjustPointsForm.remarks"
+            :rows="2"
+            placeholder="请输入调整原因（可选）"
+          />
+        </a-form-item>
+        <a-form-item label="调整后积分">
+          <span class="points-balance">{{ adjustedPoints }} 积分</span>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import {
   getUsers,
@@ -172,15 +217,18 @@ import {
   deleteUser,
   resetPassword,
 } from '@/api/user'
+import { adjustPoints } from '@/api/point'
 import dayjs from 'dayjs'
 import { PlusOutlined } from '@ant-design/icons-vue'
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const resetPasswordLoading = ref(false)
+const adjustPointsLoading = ref(false)
 const isEdit = ref(false)
 const modalVisible = ref(false)
 const resetPasswordModalVisible = ref(false)
+const adjustPointsModalVisible = ref(false)
 const currentId = ref(null)
 const currentUser = ref(null)
 
@@ -213,6 +261,22 @@ const resetPasswordForm = reactive({
   confirmPassword: '',
 })
 
+const adjustPointsForm = reactive({
+  type: 'increase',
+  points: null,
+  remarks: '',
+})
+
+const adjustedPoints = computed(() => {
+  const current = currentUser.value?.points || 0
+  const points = adjustPointsForm.points || 0
+  if (adjustPointsForm.type === 'increase') {
+    return current + points
+  } else {
+    return Math.max(0, current - points)
+  }
+})
+
 const roleMap = {
   admin: '管理员',
   operator: '操作员',
@@ -233,9 +297,10 @@ const columns = [
   { title: '角色', key: 'role', width: 100 },
   { title: '手机号', dataIndex: 'phone', key: 'phone', width: 130 },
   { title: '邮箱', dataIndex: 'email', key: 'email', width: 160, ellipsis: true },
+  { title: '积分', dataIndex: 'points', key: 'points', width: 100 },
   { title: '状态', key: 'status', width: 100 },
   { title: '注册时间', key: 'createdAt', width: 160 },
-  { title: '操作', key: 'action', width: 220, fixed: 'right' },
+  { title: '操作', key: 'action', width: 260, fixed: 'right' },
 ]
 
 const loadData = async () => {
@@ -300,6 +365,40 @@ const openResetPasswordModal = (record) => {
   resetPasswordForm.newPassword = ''
   resetPasswordForm.confirmPassword = ''
   resetPasswordModalVisible.value = true
+}
+
+const openAdjustPointsModal = (record) => {
+  currentUser.value = record
+  adjustPointsForm.type = 'increase'
+  adjustPointsForm.points = null
+  adjustPointsForm.remarks = ''
+  adjustPointsModalVisible.value = true
+}
+
+const handleAdjustPoints = async () => {
+  if (!adjustPointsForm.points || adjustPointsForm.points <= 0) {
+    message.warning('请输入调整积分数量')
+    return
+  }
+  adjustPointsLoading.value = true
+  try {
+    const points = adjustPointsForm.type === 'increase'
+      ? adjustPointsForm.points
+      : -adjustPointsForm.points
+    await adjustPoints({
+      userId: currentUser.value.id,
+      points,
+      type: 'adjust',
+      remarks: adjustPointsForm.remarks,
+    })
+    message.success('积分调整成功')
+    adjustPointsModalVisible.value = false
+    loadData()
+  } catch (e) {
+    // ignore
+  } finally {
+    adjustPointsLoading.value = false
+  }
 }
 
 const validateForm = () => {
@@ -400,5 +499,11 @@ onMounted(() => {
 <style scoped>
 .user-list {
   padding: 0;
+}
+
+.points-balance {
+  font-size: 16px;
+  font-weight: 600;
+  color: #faad14;
 }
 </style>

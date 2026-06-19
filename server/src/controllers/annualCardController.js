@@ -234,7 +234,7 @@ const getAnnualCards = async (req, res) => {
       where,
       include: [
         { model: AnnualCardType, as: 'AnnualCardType' },
-        { model: User, as: 'User', attributes: ['id', 'username', 'realName'] },
+        { model: User, as: 'User', attributes: ['id', 'username', 'realName', 'points'] },
       ],
     });
 
@@ -252,7 +252,7 @@ const getAnnualCardDetail = async (req, res) => {
     const card = await AnnualCard.findByPk(id, {
       include: [
         { model: AnnualCardType, as: 'AnnualCardType' },
-        { model: User, as: 'User', attributes: ['id', 'username', 'realName'] },
+        { model: User, as: 'User', attributes: ['id', 'username', 'realName', 'points'] },
       ],
     });
 

@@ -68,6 +68,21 @@ const ConsumptionRecord = sequelize.define('ConsumptionRecord', {
     allowNull: true,
     comment: '会员折扣率',
   },
+  pointsUsed: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    comment: '使用积分数量',
+  },
+  pointsAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    comment: '积分抵扣金额',
+  },
+  pointsEarned: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    comment: '获得积分数量',
+  },
   paymentMethod: {
     type: DataTypes.ENUM('wristband', 'qrcode', 'cash', 'annual_card'),
     allowNull: false,
