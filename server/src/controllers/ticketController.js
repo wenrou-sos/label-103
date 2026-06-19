@@ -214,6 +214,16 @@ const createTicketOrder = async (req, res) => {
       qrCode: `QR_${ticketCode}`,
     });
 
+    if (req.user && ['admin', 'operator', 'cashier'].includes(req.user.role)) {
+      await createAuditLog(req, {
+        module: MODULES.TICKET_ORDER,
+        action: ACTIONS.CREATE,
+        targetId: order.id,
+        description: `售票: 订单号 ${orderNo}, 票种 ${ticketType.name}, 数量 ${quantity}张, 金额 ¥${actualAmount}`,
+        newData: order.toJSON(),
+      });
+    }
+
     successResponse(res, order, '购票成功');
   } catch (error) {
     console.error('Create ticket order error:', error);

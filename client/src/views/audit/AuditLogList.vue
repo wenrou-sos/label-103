@@ -6,14 +6,14 @@
           v-model:value="filters.dateRange"
           style="width: 260px"
           :placeholder="['开始日期', '结束日期']"
-          @change="loadData"
+          @change="handleFilterChange"
         />
         <a-select
           v-model:value="filters.module"
           placeholder="模块筛选"
           style="width: 160px"
           allow-clear
-          @change="loadData"
+          @change="handleFilterChange"
         >
           <a-select-option
             v-for="item in moduleOptions"
@@ -28,7 +28,7 @@
           placeholder="操作类型"
           style="width: 160px"
           allow-clear
-          @change="loadData"
+          @change="handleFilterChange"
         >
           <a-select-option
             v-for="item in actionOptions"
@@ -45,7 +45,7 @@
           allow-clear
           show-search
           :filter-option="filterUserOption"
-          @change="loadData"
+          @change="handleFilterChange"
         >
           <a-select-option
             v-for="user in userOptions"
@@ -60,7 +60,7 @@
           placeholder="搜索描述/目标ID"
           style="width: 260px"
           allow-clear
-          @search="loadData"
+          @search="handleFilterChange"
         />
       </div>
     </div>
@@ -277,6 +277,11 @@ const loadOptions = async () => {
 const handlePageChange = (page, pageSize) => {
   data.value.page = page
   data.value.pageSize = pageSize
+  loadData()
+}
+
+const handleFilterChange = () => {
+  data.value.page = 1
   loadData()
 }
 

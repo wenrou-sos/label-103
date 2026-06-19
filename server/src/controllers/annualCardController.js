@@ -184,6 +184,16 @@ const purchaseAnnualCard = async (req, res) => {
       paidAt: new Date(),
     });
 
+    if (req.user && ['admin', 'operator', 'cashier'].includes(req.user.role)) {
+      await createAuditLog(req, {
+        module: MODULES.ANNUAL_CARD,
+        action: ACTIONS.CREATE,
+        targetId: annualCard.id,
+        description: `新办年卡: 卡号 ${cardNo}, 类型 ${cardType.name}, 持卡人 ${holderName}, 金额 ¥${paidAmount}`,
+        newData: annualCard.toJSON(),
+      });
+    }
+
     successResponse(res, annualCard, '年卡购买成功');
   } catch (error) {
     console.error('Purchase annual card error:', error);
@@ -561,8 +571,19 @@ const bindWristband = async (req, res) => {
       return errorResponse(res, '年卡状态异常，无法绑定手环');
     }
 
+    const oldData = card.toJSON();
+
     card.wristbandId = wristbandId;
     await card.save();
+
+    await createAuditLog(req, {
+      module: MODULES.ANNUAL_CARD,
+      action: ACTIONS.UPDATE,
+      targetId: card.id,
+      description: `绑定手环: 年卡 ${card.cardNo} 绑定手环 ${wristbandId}`,
+      oldData,
+      newData: card.toJSON(),
+    });
 
     successResponse(res, card, '手环绑定成功');
   } catch (error) {
