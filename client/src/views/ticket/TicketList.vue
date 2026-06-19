@@ -41,23 +41,23 @@
       </div>
       <div>
         <a-button type="primary" @click="openBuyModal">
-          <PlusOutlined />
+          <template #icon><PlusOutlined /></template>
           售票
         </a-button>
         <a-button @click="openVerifyModal">
-          <QrcodeOutlined />
+          <template #icon><QrcodeOutlined /></template>
           验票
         </a-button>
         <a-popconfirm
           v-if="selectedRowKeys.length > 0"
-          title={`确定对已选的 ${selectedRowKeys.length} 个订单执行批量退票吗？`}
+          :title="`确定对已选的 ${selectedRowKeys.length} 个订单执行批量退票吗？`"
           ok-text="确定"
           cancel-text="取消"
-          ok-button-props="{ danger: true }"
+          ok-type="danger"
           @confirm="openBatchRefundModal"
         >
           <a-button danger>
-            <RollbackOutlined />
+            <template #icon><RollbackOutlined /></template>
             批量退票 ({{ selectedRowKeys.length }})
           </a-button>
         </a-popconfirm>
@@ -68,16 +68,11 @@
       :columns="columns"
       :data-source="data.list"
       :loading="loading"
-      :pagination="{
-        current: data.page,
-        pageSize: data.pageSize,
-        total: data.total,
-        showSizeChanger: true,
-        showTotal: (total) => `共 ${total} 条`,
-        onChange: handlePageChange,
-      }"
+      :pagination="tablePagination"
       :row-selection="rowSelection"
+      :scroll="{ x: 1400 }"
       row-key="id"
+      @change="handleTableChange"
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'status'">
@@ -96,6 +91,9 @@
         </template>
         <template v-else-if="column.key === 'actualAmount'">
           <span class="price-amount">¥{{ record.actualAmount }}</span>
+        </template>
+        <template v-else-if="column.key === 'ticketType'">
+          {{ record.TicketType?.name || '-' }}
         </template>
         <template v-else-if="column.key === 'action'">
           <a-button type="link" size="small" @click="viewDetail(record)">查看</a-button>
@@ -210,12 +208,12 @@
       @ok="handleBatchRefund"
       ok-text="确认退款"
       cancel-text="取消"
-      ok-button-props="{ danger: true }"
+      ok-type="danger"
       :confirm-loading="batchRefundLoading"
     >
       <a-alert
         type="warning"
-        :show-icon="true"
+        show-icon
         :message="`将对 ${selectedRowKeys.length} 个订单执行批量退款操作，此操作不可撤销。`"
         style="margin-bottom: 16px"
       />
@@ -233,8 +231,6 @@
             v-model:value="batchRefundReason"
             :rows="3"
             placeholder="请输入退款原因，便于后续追溯"
-            :maxlength="200"
-            show-count
           />
         </a-form-item>
       </a-form>
@@ -244,16 +240,18 @@
       v-model:open="refundResultVisible"
       title="批量退款结果"
       :width="680"
-      ok-text="确定"
-      :cancel-button-props="{ style: { display: 'none' } }"
       @ok="handleRefundResultClose"
     >
+      <template #footer>
+        <a-button type="primary" @click="handleRefundResultClose">确定</a-button>
+      </template>
+
       <a-result
-        v-if="refundResult?.summary"
+        v-if="refundResult && refundResult.summary"
         :status="refundResult.summary.failedCount === 0 ? 'success' : 'warning'"
         :title="refundResult.message"
       >
-        <template #sub-title>
+        <template #subTitle>
           <div class="refund-summary">
             <span>总计：<b>{{ refundResult.summary.total }}</b> 单</span>
             <span style="margin-left: 16px; color: #52c41a">
@@ -269,7 +267,7 @@
         </template>
       </a-result>
 
-      <div v-if="refundResult?.results?.failed?.length" style="margin-top: 16px">
+      <div v-if="refundResult && refundResult.results && refundResult.results.failed && refundResult.results.failed.length" style="margin-top: 16px">
         <a-alert
           type="error"
           show-icon
@@ -286,7 +284,7 @@
         />
       </div>
 
-      <div v-if="refundResult?.results?.success?.length" style="margin-top: 16px">
+      <div v-if="refundResult && refundResult.results && refundResult.results.success && refundResult.results.success.length" style="margin-top: 16px">
         <a-alert
           type="success"
           show-icon
@@ -300,7 +298,13 @@
           :pagination="false"
           row-key="id"
           bordered
-        />
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'amount'">
+              ¥{{ record.amount }}
+            </template>
+          </template>
+        </a-table>
       </div>
     </a-modal>
 
@@ -316,7 +320,7 @@
         <a-descriptions-item label="票种">{{ currentOrder.TicketType?.name }}</a-descriptions-item>
         <a-descriptions-item label="数量">{{ currentOrder.quantity }} 张</a-descriptions-item>
         <a-descriptions-item label="入园日期">
-          {{ dayjs(currentOrder.visitDate).format('YYYY-MM-DD') }}
+          {{ currentOrder.visitDate ? dayjs(currentOrder.visitDate).format('YYYY-MM-DD') : '-' }}
         </a-descriptions-item>
         <a-descriptions-item label="季节类型">
           {{ currentOrder.seasonType === 'peak' ? '旺季' : '淡季' }}
@@ -357,7 +361,14 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { getTicketOrders, getTicketTypes, createTicketOrder, verifyTicket, refundTicket, batchRefundTickets } from '@/api/ticket'
+import {
+  getTicketOrders,
+  getTicketTypes,
+  createTicketOrder,
+  verifyTicket,
+  refundTicket,
+  batchRefundTickets,
+} from '@/api/ticket'
 import dayjs from 'dayjs'
 import {
   PlusOutlined,
@@ -381,7 +392,7 @@ const refundResult = ref(null)
 
 const successColumns = [
   { title: '订单号', dataIndex: 'orderNo', key: 'orderNo' },
-  { title: '退款金额', dataIndex: 'amount', key: 'amount', width: 120, customRender: ({ text }) => `¥${text}` },
+  { title: '退款金额', dataIndex: 'amount', key: 'amount', width: 120 },
 ]
 
 const failedColumns = [
@@ -456,7 +467,7 @@ const paymentMap = {
 const columns = [
   { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 180 },
   { title: '票号', dataIndex: 'ticketCode', key: 'ticketCode', width: 140 },
-  { title: '票种', dataIndex: ['TicketType', 'name'], key: 'ticketType', width: 100 },
+  { title: '票种', key: 'ticketType', width: 100 },
   { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
   { title: '入园日期', dataIndex: 'visitDate', key: 'visitDate', width: 120 },
   { title: '季节', key: 'seasonType', width: 80 },
@@ -464,8 +475,16 @@ const columns = [
   { title: '实付金额', key: 'actualAmount', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '游客', dataIndex: 'visitorName', key: 'visitorName', width: 100 },
-  { title: '操作', key: 'action', width: 140, fixed: 'right' },
+  { title: '操作', key: 'action', width: 160, fixed: 'right' },
 ]
+
+const tablePagination = computed(() => ({
+  current: data.value.page,
+  pageSize: data.value.pageSize,
+  total: data.value.total,
+  showSizeChanger: true,
+  showTotal: (total) => `共 ${total} 条`,
+}))
 
 const selectedTotalAmount = computed(() => {
   return selectedRows.value.reduce((sum, row) => sum + (parseFloat(row.actualAmount) || 0), 0)
@@ -496,7 +515,7 @@ const loadData = async () => {
       ticketTypeId: filters.ticketTypeId,
       keyword: filters.keyword,
     }
-    if (dateRange.value?.length === 2) {
+    if (dateRange.value && dateRange.value.length === 2) {
       params.startDate = dayjs(dateRange.value[0]).format('YYYY-MM-DD')
       params.endDate = dayjs(dateRange.value[1]).format('YYYY-MM-DD')
     }
@@ -514,9 +533,9 @@ const handleSearch = () => {
   loadData()
 }
 
-const handlePageChange = (page, pageSize) => {
-  data.value.page = page
-  data.value.pageSize = pageSize
+const handleTableChange = (pagination) => {
+  data.value.page = pagination.current
+  data.value.pageSize = pagination.pageSize
   loadData()
 }
 
@@ -608,7 +627,7 @@ const handleVerify = async () => {
   }
   verifyLoading.value = true
   try {
-    const result = await verifyTicket({
+    await verifyTicket({
       ticketCode: verifyForm.ticketCode,
       idCard: verifyForm.idCard,
     })
@@ -633,7 +652,7 @@ const handleRefund = (record) => {
     content: `确定要对订单 ${record.orderNo} 进行退款吗？`,
     okText: '确定退款',
     cancelText: '取消',
-    okButtonProps: { danger: true },
+    okType: 'danger',
     onOk: async () => {
       try {
         await refundTicket(record.id)
@@ -709,17 +728,17 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
+}
 
-  &.discount {
-    color: #faad14;
-  }
+.price-item.discount {
+  color: #faad14;
+}
 
-  &.total {
-    font-size: 16px;
-    font-weight: 600;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed #d9d9d9;
-  }
+.price-item.total {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #d9d9d9;
 }
 </style>
