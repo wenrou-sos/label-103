@@ -25,6 +25,12 @@ const TicketOrder = sequelize.define('TicketOrder', {
     allowNull: false,
     defaultValue: 1,
   },
+  usedQuantity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: '已使用票数',
+  },
   unitPrice: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,

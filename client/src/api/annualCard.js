@@ -14,6 +14,8 @@ export const getAllCardTypes = () => {
   })
 }
 
+export const getAllAnnualCardTypes = getAllCardTypes
+
 export const createCardType = (data) => {
   return request({
     url: '/annual-cards/types',
@@ -53,10 +55,11 @@ export const getAnnualCards = (params) => {
   })
 }
 
-export const getMyCards = () => {
+export const getMyCards = (params) => {
   return request({
     url: '/annual-cards/my',
     method: 'get',
+    params,
   })
 }
 

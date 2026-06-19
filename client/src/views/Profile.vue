@@ -29,7 +29,28 @@
       </a-col>
 
       <a-col :span="16">
-        <a-card title="个人信息" :extra="extraButton">
+        <a-card title="个人信息">
+          <template #extra>
+            <template v-if="editing">
+              <a-button type="primary" :loading="submitLoading" @click="handleSave" style="margin-right: 8px">
+                <SaveOutlined />
+                保存
+              </a-button>
+              <a-button @click="handleCancelEdit">
+                <CloseOutlined />
+                取消
+              </a-button>
+            </template>
+            <template v-else>
+              <a-button type="primary" @click="handleEdit" style="margin-right: 8px">
+                <EditOutlined />
+                编辑
+              </a-button>
+              <a-button @click="openPasswordModal">
+                修改密码
+              </a-button>
+            </template>
+          </template>
           <template v-if="!editing">
             <a-descriptions :column="2" bordered size="default">
               <a-descriptions-item label="用户名">{{ userInfo.username }}</a-descriptions-item>
@@ -120,7 +141,7 @@
             <a-col :span="8">
               <div class="overview-card">
                 <div class="overview-icon">
-                  <TicketOutlined style="color: #722ed1; font-size: 32px" />
+                  <TagsOutlined style="color: #722ed1; font-size: 32px" />
                 </div>
                 <div class="overview-info">
                   <div class="overview-value">{{ ticketStats.unused }}</div>
@@ -180,8 +201,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
+import dayjs from 'dayjs'
 import { getCurrentUser, updateProfile, changePassword } from '@/api/auth'
 import { getMyCards } from '@/api/annualCard'
 import { getTicketOrders } from '@/api/ticket'
@@ -192,7 +214,7 @@ import {
   CreditCardOutlined,
   WarningOutlined,
   DollarOutlined,
-  TicketOutlined,
+  TagsOutlined,
   CheckCircleOutlined,
   ShoppingOutlined,
 } from '@ant-design/icons-vue'
@@ -245,29 +267,6 @@ const roleColors = {
   cashier: 'cyan',
   member: 'green',
 }
-
-const extraButton = computed(() => (
-  editing.value
-    ? [
-        <a-button key="save" type="primary" loading={submitLoading.value} onClick={handleSave}>
-          <SaveOutlined />
-          保存
-        </a-button>,
-        <a-button key="cancel" onClick={handleCancelEdit}>
-          <CloseOutlined />
-          取消
-        </a-button>,
-      ]
-    : [
-        <a-button key="edit" type="primary" onClick={handleEdit}>
-          <EditOutlined />
-          编辑
-        </a-button>,
-        <a-button key="password" onClick={openPasswordModal}>
-          修改密码
-        </a-button>,
-      ]
-))
 
 const loadUserInfo = async () => {
   try {

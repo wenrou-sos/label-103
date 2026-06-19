@@ -28,7 +28,7 @@
 
         <a-sub-menu v-if="isAdminOrOperator" key="ticket-menu">
           <template #icon>
-            <TicketOutlined />
+            <TagsOutlined />
           </template>
           <template #title>票务管理</template>
           <a-menu-item key="/tickets">门票订单</a-menu-item>
@@ -86,7 +86,7 @@
 
         <a-menu-item v-if="isMember" key="/my-tickets">
           <template #icon>
-            <TicketOutlined />
+            <TagsOutlined />
           </template>
           <span>我的门票</span>
         </a-menu-item>
@@ -178,7 +178,7 @@ import { useUserStore } from '@/stores/user'
 import { message, Modal } from 'ant-design-vue'
 import {
   DashboardOutlined,
-  TicketOutlined,
+  TagsOutlined,
   CreditCardOutlined,
   ShoppingCartOutlined,
   TeamOutlined,

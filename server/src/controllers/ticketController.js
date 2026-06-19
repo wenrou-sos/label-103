@@ -277,16 +277,17 @@ const verifyTicket = async (req, res) => {
       return errorResponse(res, '票号不存在');
     }
 
-    if (order.status !== 'paid') {
+    if (order.status === 'refunded') {
+      return errorResponse(res, '门票已退款');
+    }
+
+    if (order.status === 'cancelled' || order.status === 'expired') {
       return errorResponse(res, '门票状态异常，请联系工作人员');
     }
 
-    if (order.status === 'used') {
-      return errorResponse(res, '门票已使用');
-    }
-
-    if (order.status === 'refunded') {
-      return errorResponse(res, '门票已退款');
+    const currentUsed = order.usedQuantity || 0;
+    if (currentUsed >= order.quantity) {
+      return errorResponse(res, '该订单门票已全部使用');
     }
 
     if (dayjs(order.visitDate).format('YYYY-MM-DD') !== dayjs().format('YYYY-MM-DD')) {
@@ -306,8 +307,13 @@ const verifyTicket = async (req, res) => {
       }
     }
 
-    order.status = 'used';
+    order.usedQuantity = currentUsed + 1;
     order.usedAt = new Date();
+    if (order.usedQuantity >= order.quantity) {
+      order.status = 'used';
+    } else if (order.status === 'pending') {
+      order.status = 'paid';
+    }
     await order.save();
 
     const { VisitorRecord } = require('../models');
@@ -320,7 +326,10 @@ const verifyTicket = async (req, res) => {
       isInPark: true,
     });
 
-    successResponse(res, { order }, '验票成功');
+    successResponse(res, {
+      order,
+      remaining: order.quantity - order.usedQuantity,
+    }, `验票成功，剩余 ${order.quantity - order.usedQuantity} 张`);
   } catch (error) {
     console.error('Verify ticket error:', error);
     errorResponse(res, '验票失败', 500);

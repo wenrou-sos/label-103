@@ -154,7 +154,7 @@
         </a-form-item>
         <a-form-item label="总金额">
           <a-input-number
-            v-model:value="createForm.amount"
+            v-model:value="createForm.totalAmount"
             :min="0"
             :precision="2"
             style="width: 100%"

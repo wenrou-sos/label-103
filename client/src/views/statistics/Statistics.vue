@@ -53,7 +53,7 @@
         <a-tab-pane key="expiring" tab="到期预警">
           <div class="tab-content">
             <a-alert
-              message={`共 ${expiringCards.list?.length || 0} 张年卡将在30天内到期`}
+              :message="'共 ' + (expiringCards.list?.length || 0) + ' 张年卡将在30天内到期'"
               type="warning"
               show-icon
               class="expiring-alert"

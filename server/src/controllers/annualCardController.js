@@ -320,20 +320,25 @@ const rechargeAnnualCard = async (req, res) => {
 
 const getRenewalPackages = async (req, res) => {
   try {
-    const { cardTypeId } = req.query;
+    const { page = 1, pageSize = 10, cardTypeId, keyword } = req.query;
 
-    const where = { isActive: true };
+    const where = {};
     if (cardTypeId) {
       where.cardTypeId = cardTypeId;
     }
+    if (keyword) {
+      where.name = { [Op.like]: `%${keyword}%` };
+    }
 
-    const packages = await RenewalPackage.findAll({
+    const result = await paginate(RenewalPackage, {
+      page,
+      pageSize,
       where,
       include: [{ model: AnnualCardType, as: 'AnnualCardType' }],
       order: [['sortOrder', 'ASC']],
     });
 
-    successResponse(res, packages);
+    successResponse(res, result);
   } catch (error) {
     console.error('Get renewal packages error:', error);
     errorResponse(res, '获取续费套餐失败', 500);
@@ -436,13 +441,23 @@ const deleteRenewalPackage = async (req, res) => {
 
 const getMyCards = async (req, res) => {
   try {
-    const cards = await AnnualCard.findAll({
-      where: { userId: req.user.id },
+    const { page = 1, pageSize = 10, status } = req.query;
+
+    const where = { userId: req.user.id };
+
+    if (status) {
+      where.status = status;
+    }
+
+    const result = await paginate(AnnualCard, {
+      page,
+      pageSize,
+      where,
       include: [{ model: AnnualCardType, as: 'AnnualCardType' }],
       order: [['createdAt', 'DESC']],
     });
 
-    successResponse(res, cards);
+    successResponse(res, result);
   } catch (error) {
     console.error('Get my cards error:', error);
     errorResponse(res, '获取我的年卡失败', 500);
